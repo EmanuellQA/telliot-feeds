@@ -479,7 +479,7 @@ class IntervalReporter:
 
         try:
             # Confirm transaction
-            tx_receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash, timeout=360)
+            tx_receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
 
             tx_url = f"{self.endpoint.explorer}/tx/{tx_hash.hex()}"
 
