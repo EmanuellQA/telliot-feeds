@@ -77,7 +77,7 @@ class TWAPLPSpotPriceService(WebPriceService):
 
     def __init__(self, **kwargs: Any) -> None:
         kwargs["name"] = "TWAP LP Price Service"
-        kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "http://rpc.pulsechain.com")
+        kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "https://rpc.pulsechain.com")
         kwargs["timeout"] = 10.0
 
         self.prevPricesPath: Path = Path('./prevPricesCumulative.json') 
