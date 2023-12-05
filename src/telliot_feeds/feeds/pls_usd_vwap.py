@@ -9,15 +9,15 @@ import os
 load_dotenv()
 logger = get_logger(__name__)
 
+DEFAULT_LP_CURRENCIES = ['usdt', 'usdc', 'dai']
+
 def get_sources_objs():
-    if not os.getenv("PLS_CURRENCY_SOURCES"):
-        return []
     sources = os.getenv("PLS_CURRENCY_SOURCES")
+    if not sources:
+        logger.info(f"Using default '{DEFAULT_LP_CURRENCIES}' as currencies for PLS VWAP feed")
+        return [TWAPLPSpotPriceSource(asset="pls", currency=currency) for currency in DEFAULT_LP_CURRENCIES]
     sources_list = sources.split(',')
-    sources_objs = []
-    for s in sources_list:
-        sources_objs.append(TWAPLPSpotPriceSource(asset="pls", currency=s))
-    return sources_objs
+    return [TWAPLPSpotPriceSource(asset="pls", currency=currency) for currency in sources_list]
 
 pls_usd_vwap_feed = DataFeed(
     query=SpotPrice(

@@ -63,20 +63,30 @@ class TWAPLPSpotPriceService(WebPriceService):
         }
     ]
     """
+    DEFAULT_LP_CURRENCIES = ['usdt', 'usdc', 'dai']
+    DEFAULT_LP_ADDRESSES = [
+        '0x322Df7921F28F1146Cdf62aFdaC0D6bC0Ab80711',
+        '0x6753560538ECa67617A9Ce605178F788bE7E524E',
+        '0xE56043671df55dE5CDf8459710433C10324DE0aE'
+    ]
+    DEFAULT_LP_CURRENCY_ORDER = [
+        'usdt/wpls',
+        'usdc/wpls',
+        'wpls/dai'
+    ]
 
     def __init__(self, **kwargs: Any) -> None:
         kwargs["name"] = "TWAP LP Price Service"
-        kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "https://rpc.v4.testnet.pulsechain.com")
+        kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "http://rpc.pulsechain.com")
         kwargs["timeout"] = 10.0
 
         self.prevPricesPath: Path = Path('./prevPricesCumulative.json') 
         self.max_retries = int(os.getenv('MAX_RETRIES', 5))
-        self.period = int(os.getenv('TWAP_TIMESPAN', 3600*12))
+        self.period = int(os.getenv('TWAP_TIMESPAN', 1800))
 
         self.isSourceInitialized = False
 
         self.isTwapServiceActive = False
-        self.twap_time_safe_distance = int(os.getenv('TWAP_TIME_SAFE_DISTANCE', 5))
         self.reporter_start_time = None
 
         super().__init__(**kwargs)
@@ -131,11 +141,15 @@ class TWAPLPSpotPriceService(WebPriceService):
             await asyncio.sleep(0)
 
     def _get_contract_address(self) -> dict[str, str]:
+        address_sources = os.getenv("PLS_ADDR_SOURCES")
+        currency_sources = os.getenv("PLS_CURRENCY_SOURCES")
+
+        if not address_sources or not currency_sources:
+            return {currency: address for currency, address in zip(self.DEFAULT_LP_CURRENCIES, self.DEFAULT_LP_ADDRESSES)}
+
         addrs = {}
-        sources_addrs = os.getenv("PLS_ADDR_SOURCES")
-        sources = os.getenv("PLS_CURRENCY_SOURCES")
-        sources_list = sources.split(',')
-        sources_addr_list = sources_addrs.split(',')
+        sources_list = currency_sources.split(',')
+        sources_addr_list = address_sources.split(',')
 
         if len(sources_list) != len(sources_addr_list):
             raise Exception('PLS_CURRENCY_SOURCES and PLS_ADDR_SOURCES must have the same length')
@@ -145,9 +159,14 @@ class TWAPLPSpotPriceService(WebPriceService):
         return addrs
 
     def _get_lps_order(self) -> dict[str, str]:
+        currency_sources = os.getenv("PLS_CURRENCY_SOURCES")
+        currency_order = os.getenv("PLS_LPS_ORDER")
+        if not currency_sources or not currency_order:
+            return {currency: order for currency, order in zip(self.DEFAULT_LP_CURRENCIES, self.DEFAULT_LP_CURRENCY_ORDER)}
+
         lps_order = {}
-        sources_list = os.getenv("PLS_CURRENCY_SOURCES").split(',')
-        order_list = os.getenv("PLS_LPS_ORDER").split(',')
+        sources_list = currency_sources.split(',')
+        order_list = currency_order.split(',')
         if len(sources_list) != len(order_list):
             raise Exception('PLS_CURRENCY_SOURCES and PLS_ADDR_SOURCES must have the same length')
         for i,s in enumerate(sources_list):

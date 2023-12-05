@@ -8,10 +8,15 @@ import os
 load_dotenv()
 logger = get_logger(__name__)
 
+DEFAULT_LP_CURRENCY = 'dai'
+
 def get_currency():
     if not os.getenv("PLS_CURRENCY_SOURCES"):
-        return ""
-    return os.getenv("PLS_CURRENCY_SOURCES").split(',')[0]
+        logger.info(f"Using default '{DEFAULT_LP_CURRENCY}' as currency for PLS TWAP LP feed")
+        return DEFAULT_LP_CURRENCY
+    currency_sources = os.getenv("PLS_CURRENCY_SOURCES").split(',')
+    if len(currency_sources) > 1: logger.info(f"Using {currency_sources[0]} as currency for PLS TWAP LP feed")
+    return currency_sources[0]
 
 pls_usd_twap_lp_feed = DataFeed(
     query=SpotPrice(
