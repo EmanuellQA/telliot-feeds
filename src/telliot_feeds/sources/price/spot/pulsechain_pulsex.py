@@ -15,23 +15,45 @@ import os
 
 load_dotenv()
 
-addrs = {}
-if os.getenv("PLS_CURRENCY_SOURCES") and os.getenv("PLS_ADDR_SOURCES"):
-    sources_addrs = os.getenv("PLS_ADDR_SOURCES")
-    sources = os.getenv("PLS_CURRENCY_SOURCES")
-    sources_list = sources.split(',')
-    sources_addr_list = sources_addrs.split(',')
+DEFAULT_LP_CURRENCIES = ['usdt', 'usdc', 'dai']
+DEFAULT_LP_ADDRESSES = [
+    '0x322Df7921F28F1146Cdf62aFdaC0D6bC0Ab80711',
+    '0x6753560538ECa67617A9Ce605178F788bE7E524E',
+    '0xE56043671df55dE5CDf8459710433C10324DE0aE'
+]
+DEFAULT_LP_CURRENCY_ORDER = [
+    'usdt/wpls',
+    'usdc/wpls',
+    'wpls/dai'
+]
 
+def get_lps_contract_addressses():
+    currency_sources = os.getenv("PLS_CURRENCY_SOURCES")
+    address_sources = os.getenv("PLS_ADDR_SOURCES")
+    if not currency_sources or not address_sources:
+        return {currency: address for currency, address in zip(DEFAULT_LP_CURRENCIES, DEFAULT_LP_ADDRESSES)}
+    addrs = {}
+    sources_list = currency_sources.split(',')
+    sources_addr_list = address_sources.split(',')
     for i,s in enumerate(sources_list):
         addrs[s] = Web3.toChecksumAddress(sources_addr_list[i])
+    return addrs
 
-pls_lps_order = {}
-if os.getenv("PLS_LPS_ORDER") and os.getenv("PLS_CURRENCY_SOURCES"):
-    sources_list = os.getenv("PLS_CURRENCY_SOURCES").split(',')
-    sources_lps_list = os.getenv("PLS_LPS_ORDER").split(',')
+addrs = get_lps_contract_addressses()        
 
+def get_lps_currency_order():
+    currency_sources = os.getenv("PLS_CURRENCY_SOURCES")
+    currency_order = os.getenv("PLS_LPS_ORDER")
+    if not currency_sources or not currency_order:
+        return {currency: order for currency, order in zip(DEFAULT_LP_CURRENCIES, DEFAULT_LP_CURRENCY_ORDER)}
+    pls_lps_order = {}
+    sources_list = currency_sources.split(',')
+    sources_lps_list = currency_order.split(',')
     for i,s in enumerate(sources_list):
         pls_lps_order[s] = sources_lps_list[i].lower()
+    return pls_lps_order
+
+pls_lps_order = get_lps_currency_order()
 
 logger = get_logger(__name__)
 
@@ -58,7 +80,7 @@ class PulsechainPulseXService(WebPriceService):
 
     def __init__(self, **kwargs: Any) -> None:
         kwargs["name"] = "LiquidLoans PulseX Price Service"
-        kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "https://rpc.v4.testnet.pulsechain.com")
+        kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "https://rpc.pulsechain.com")
         kwargs["timeout"] = 10.0
         super().__init__(**kwargs)
 
