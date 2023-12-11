@@ -193,7 +193,7 @@ python set_telliot_env.py --env testnet
 
 ### Configuring telliot-feeds sources environment variables
 
-Open the [.env.example](../.env.example) file so that you can review the config for the reporter. You can use these defaults to report to `mainnet`.
+Open the [.env.example](https://github.com/fetchoracle/telliot-feeds/blob/main/.env.example) file so that you can review the config for the reporter. You can use these defaults to report to `mainnet`.
 
 These environment variables configure which source will be used to Spot a Price. Using a different source will report a different values.
 
