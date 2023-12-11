@@ -1,5 +1,25 @@
 # Configuring price sources
 
+A Telliot feed can be configured to use a specific price source. The bullet list described below presents the feeds for PLS/USD and its price sources:
+
+* `pls-usd-spot` Feed sources
+    * Pulsex Liquidity Pools Pairs
+    * Coingecko
+    * LiquidLoans Pulsechain Subgraph
+
+* `pls-usd-spot-twap` Feed source
+    * TWAP of a Pulsex Liquidity Pool Pair
+* `pls-usd-spot-vwap` Feed source
+    * VWAP of Pulsex Liquidity Pools Pairs
+
+A feed used by a Telliot reporter is configured with default sources. There are default configurations for SpotPrice PLS/USD Query with default PulseX Liquidity Pools (LPs) as price source, these LPs pairs are USDT/WPLS, USDC/WPLS and WPLS/DAI from Pulsechain mainnet. Below is described the default behaviour for the PLS/USD price feeds in which use these LPs as sources, by applying the weighted average, time weight average price or volume weighted average price:
+
+- Weighted average: uses the `-qt pls-usd-spot` CLI option for a `telliot report`. It performs the weighted average algorithm for the retrieved prices from the default Liquidity Pool pairs to return one single price.
+
+- Time weight average price (TWAP): uses the `-qt pls-usd-spot-twap-lp` CLI option for a `telliot report`. It performs the TWAP algorithm defined as $twap = \frac{priceCumulative_2 - priceCumulative_1}{timestamp_2 - timestamp_1}$ for the default WPLS/DAI LP pair. The prices cumulative are retrieved from the LP and the default time difference for a TWAP is 30 minutes (1800 seconds).
+
+- Volume weighted average price (VWAP): uses the `-qt pls-usd-spot-vwap` CLI option for a `telliot report`. It performs the TWAP algorithm for each default LP pair, once the prices are retrieved it calculates the weighted average to return one single price.
+
 It's also possible to configure Pulsex Liquidity Pools Pairs and other price sources. Using a different source will report different values.
 
 Telliot will use the default configuration if there's no environment configuration through the `.env` file. The default config uses the Pulsex Liquidity Pools pairs which are configured with the variables `PLS_CURRENCY_SOURCES`, `PLS_ADDR_SOURCES`, `PLS_LPS_ORDER`, `TWAP_TIMESPAN` and `LP_PULSE_NETWORK_URL`. The default values for these variables are:
@@ -25,18 +45,21 @@ When the environment variables are provided in the `.env` file, Telliot will ove
 
     The SpotPrice for `pls-usd-spot` query-tag can use one of three sources: `PulsechainPulseXSource`, `CoinGeckoSpotPriceSource` or `PulsechainSubgraphSource`.
 
-    The feed [pls_usd_feed.py](https://github.com/fetchoracle/telliot-feeds/blob/main/src/telliot_feeds/feeds/pls_usd_feed.py) uses its data sources accordingly to the environment variables in the `.env` file. The configuration process checks the `COINGECKO_MOCK_URL` and `PULSECHAIN_SUBGRAPH_URL` variables to determine the data source.
+    The feed [pls_usd_feed.py](https://github.com/fetchoracle/telliot-feeds/blob/main/src/telliot_feeds/feeds/pls_usd_feed.py) uses its data sources accordingly to the environment variables in the `.env` file. The configuration process checks the existence `COINGECKO_MOCK_URL` or `PULSECHAIN_SUBGRAPH_URL` variables to determine the data source. This feed select the source as follows:
+
+    - If the configuration variable COINGECKO_MOCK_URL is found in the .env file, the feed uses CoinGecko as the price source.
+    - Alternatively, if the configuration variable PULSECHAIN_SUBGRAPH_URL is found in the .env file, the feed uses the LiquidLoans Pulsechain Subgraph URL as the source.
+    - If neither of the above configuration variables is found, the feed defaults to using the `PulseX Liquidity Pools pairs`. It passes the LPs data (using the Liquidity Pool pairs config) to a Price Aggregator which uses the weighted average algorithm.
 
     ```sh
+    # .env configuration example
     COINGECKO_MOCK_URL=https://api.coingecko.com/api/v3
     PULSECHAIN_SUBGRAPH_URL=https://subgraph-dev.liquidloans.io
     ```
 
-    When a configuration variable for `COINGECKO_MOCK_URL` is found in the `.env`, it uses CoinGecko as the source. Alternatively, it checks for `PULSECHAIN_SUBGRAPH_URL` to use a LiquidLoans Pulsechain Subgraph URL. If neither configuration is found, the feed uses the default `PulseX Liquidity Pools pairs` in which passes its data to a Price Aggregator with the weighted average algorithm, using the Liquidity Pool pairs configuration.
-
     The feeds [pls_usd_twap_lp.py](https://github.com/fetchoracle/telliot-feeds/blob/main/src/telliot_feeds/feeds/pls_usd_twap_lp.py) and [pls_usd_vwap.py](https://github.com/fetchoracle/telliot-feeds/blob/main/src/telliot_feeds/feeds/pls_usd_vwap.py) uses only the source `TWAPLPSpotPriceSource` in which also uses the `PulseX Liquidity Pool pairs` configuration.
     
-    To use a custom configuration for the `Pulsex Liquidity Pool pairs` source, variables for `PLS_CURRENCY_SOURCES`, `PLS_ADDR_SOURCES`, `PLS_LPS_ORDER`, `LP_PULSE_NETWORK_URL` and `TWAP_TIMESPAN` must be provided, please refer the `.env.emxaple` file to see how to proper configure the `.env` file.
+    To use a custom `Liquidity Pool pairs`  source configuration, the variables for `PLS_CURRENCY_SOURCES`, `PLS_ADDR_SOURCES`, `PLS_LPS_ORDER`, `LP_PULSE_NETWORK_URL` and `TWAP_TIMESPAN` must be provided, please refer the `.env.emxaple` file to see how to proper configure the `.env` file.
     
     - `PLS_CURRENCY_SOURCES`: defines the currencies that are going to be used, as "dai" for example;
     - `PLS_ADDR_SOURCES`: defines the contract addresses of the Liquidity Pools configured;

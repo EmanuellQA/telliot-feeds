@@ -210,23 +210,13 @@ The supported environments are testnet and mainnet.Execute `python set_telliot_e
 python set_telliot_env.py --env testnet
 ```
 
-### telliot-feeds sources
+### telliot-feeds reporting a price
 
-Telliot reporter is configured with default sources. There are default configurations for SpotPrice PLS/USD Query with default PulseX Liquidity Pools (LPs) as price source, these LPs pairs are USDT/WPLS, USDC/WPLS and WPLS/DAI from Pulsechain mainnet. Below is described the default configuration for price sources that use these LPs with the weighted average, time weight average price and volume weighted average price:
-
-- Weighted average: uses the `-qt pls-usd-spot` CLI option for a `telliot report`. It performs the weighted average algorithm for the retrieved prices from the default Liquidity Pool pairs to return one single price.
-
-- Time weight average price (TWAP): uses the `-qt pls-usd-spot-twap-lp` CLI option for a `telliot report`. It performs the TWAP algorithm defined as $twap = \frac{priceCumulative_2 - priceCumulative_1}{timestamp_2 - timestamp_1}$ for the default WPLS/DAI LP pair. The prices cumulative are retrieved from the LP and the default time difference for a TWAP is 30 minutes (1800 seconds).
-
-- Volume weighted average price (VWAP): uses the `-qt pls-usd-spot-vwap` CLI option for a `telliot report`. It performs the TWAP algorithm for each default LP pair, once the prices are retrieved it calculates the weighted average to return one single price.
-
-You can get started with telliot report by running the following telliot command:
+You can get started with telliot report by running the following telliot command. It will make a PLS/USD price report with the volume weighted average price (VWAP) default configuration, please refer to [Configuring price sources](https://github.com/fetchoracle/telliot-feeds/blob/dev/docs/configuring-sources.md) docs to see the defaults and configurations.
 
 ```sh
-telliot report -a myacct1 -qt pls-usd-spot --fetch-flex
+telliot report -a myacct1 -qt pls-usd-spot-vwap --fetch-flex
 ```
-
-It will use default Pulsex Liquidity Pool Pair as price source, please refer to [Configuring price sources](https://github.com/fetchoracle/telliot-feeds/blob/dev/docs/configuring-sources.md) docs to see the default configuration and how to override it.
 
 ### Configure endpoint via CLI
 
