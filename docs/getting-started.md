@@ -212,7 +212,7 @@ python set_telliot_env.py --env testnet
 
 ### telliot-feeds reporting a price
 
-You can get started with telliot report by running the following telliot command. It will make a PLS/USD price report with the volume weighted average price (VWAP) default configuration, please refer to [Configuring price sources](https://github.com/fetchoracle/telliot-feeds/blob/dev/docs/configuring-sources.md) docs to see the defaults and configurations.
+You can get started with telliot report by running the following telliot command. It will make a PLS/USD price report with the volume weighted average price (VWAP) default configuration, please refer to [Configuring price sources](./configuring-sources.md) docs to see the defaults and configurations.
 
 ```sh
 telliot report -a myacct1 -qt pls-usd-spot-vwap --fetch-flex

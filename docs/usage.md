@@ -15,7 +15,7 @@ $ telliot report -a acct1 -ncr -qt pls-usd-spot --fetch-flex
 
 # Reporting Basics
 
-**Note: When using the `report` command, `telliot` will automatically attempt to stake the minimum required to report. To see the current stake amount, find the oracle contract on your desired chain [here](https://docs.fetchoracle.com/fetch/the-basics/contracts-reference), then call `getStakeAmount` in the contract's read functions section on the block explorer. The returned value is denominated in wei.**
+**Note: When using the `report` command, `telliot` will automatically attempt to stake the minimum required to report. To see the current stake amount, find the oracle contract on your desired chain, then call `getStakeAmount` in the contract's read functions section on the block explorer. The returned value is denominated in wei.**
 
 ## Help flag
 
