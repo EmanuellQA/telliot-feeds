@@ -102,7 +102,7 @@ Finally, install telliot feeds:
 
 During the installation, the package `eth-brownie` may log errors about dependencies version conflict. It will not compromise the installation, it happens because that package pushes some packages' versions downwards whereas there are packages that require newer versions.
 
-After the installtion you can check telliot installtion by running:
+After the installation you can check telliot default configuration by running:
 
 ```sh
 telliot config show
@@ -159,6 +159,25 @@ To view your current configuration at any time:
 
     telliot config show
 
+The default configuration for `~/telliot/endpoints.yaml` is:
+
+```yaml
+type: EndpointList
+endpoints:
+- type: RPCEndpoint
+  chain_id: 943
+  network: Pulsechain Testnet
+  provider: Pulsechain
+  url: https://rpc.v4.testnet.pulsechain.com
+  explorer: https://scan.v4.testnet.pulsechain.com/
+- type: RPCEndpoint
+  chain_id: 369
+  network: Pulsechain Mainnet
+  provider: Pulsechain
+  url: https://rpc.pulsechain.com
+  explorer: https://scan.pulsechain.com/
+```
+
 ### Add Reporting Accounts
 
 The reporter (telliot) needs to know which accounts (wallet addresses) are available for submitting values to the oracle.
@@ -191,33 +210,13 @@ The supported environments are testnet and mainnet.Execute `python set_telliot_e
 python set_telliot_env.py --env testnet
 ```
 
-### Configuring telliot-feeds sources environment variables
+### telliot-feeds reporting a price
 
-Open the [.env.example](https://github.com/fetchoracle/telliot-feeds/blob/main/.env.example) file so that you can review the config for the reporter. You can use these defaults to report to `mainnet`.
+You can get started with telliot report by running the following telliot command. It will make a PLS/USD price report with the volume weighted average price (VWAP) default configuration, please refer to [Configuring price sources](./configuring-sources.md) docs to see the defaults and configurations.
 
-These environment variables configure which source will be used to Spot a Price. Using a different source will report a different values.
-
-- Query PLS/USD (`-qt pls-usd-spot`)
-
-    The SpotPrice for pls-usd-spot query-tag can use one of three sources: `PulsechainPulseXSource`, `CoinGeckoSpotPriceSource` or `PulsechainSubgraphSource`.
-    
-    The feed [pls_usd_feed.py](https://github.com/fetchoracle/telliot-feeds/blob/dev/src/telliot_feeds/feeds/pls_usd_feed.py) checks the environment variable in the `.env` file for its respective sources. If it finds a config for `PLS_CURRENCY_SOURCES`, it uses the `PulsechainPulseXSource` and passes its data to a Price Aggregator using the weighted average algorithm. Otherwise, it checks for `COINGECKO_MOCK_URL` to use the CoinGecko as source. Finally, if it does not find either configuration, it uses the default Pulsechain Subgraph as source, the variable `PULSECHAIN_SUBGRAPH_URL` configures the subgraph URL.
-    
-    The `PulsechainPulseXSource` also requires the `PLS_ADDR_SOURCES` environment variable, which are the contract addresses for the given `PLS_CURRENCY_SOURCES`; the `PLS_LPS_ORDER` variable, which tells the currency order of the Liquidity pool since the `PulsechainPulseXSource` needs to know if it is a "WPLS/DAI" or "DAI/WPLS" Liquidity Pool for example; and the `LP_PULSE_NETWORK_URL`, it configures the `PulsechainPulseXSource` URL to pulse mainnet or pulse testnet to interact with the Pool contract.
-
-- Query FETCH/USD (`-qt fetch-usd-pot`)
-
-    The SpotPrice for fetch-usd-spot query-tag can use one of two sources: `PulseXSupgraphSource` or `CoinGeckoSpotPriceSource`.
-
-    The feed [fetch_usd_feed.py](https://github.com/fetchoracle/telliot-feeds/blob/dev/src/telliot_feeds/feeds/fetch_usd_feed.py) checks the environment variables in the `.env` file for its respective sources. If it finds a config for `PULSEX_SUBGRAPH_URL` it uses the PulseX Supgraph as source. Otherwise, it uses the default CoinGecko source. The `PulseXSupgraphSource` also requires the `FETCH_ADDRESS` environment variable.
-
-- Query PLSX/USD (`qt plsx-usd-spot`)
-
-    The SpotPrice for plsx-usd-spot query-tag only users `PulsechainPulseXSource` source.
-
-    The feed [plsx_usd_feed.py](https://github.com/fetchoracle/telliot-feeds/blob/dev/src/telliot_feeds/feeds/plsx_usd_feed.py) will use the configuration for `PLSX_CURRENCY_SOURCES`, `PLSX_ADDR_SOURCES` and `PLSX_LPS_ORDER` likewise for pls-sd-spot.
-
-The currency sources supported for pls-usd-spot and plsx-usd-spot are "DAI", "USDC" and "USDT".
+```sh
+telliot report -a myacct1 -qt pls-usd-spot-vwap --fetch-flex
+```
 
 ### Configure endpoint via CLI
 
