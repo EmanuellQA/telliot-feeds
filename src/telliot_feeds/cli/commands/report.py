@@ -272,7 +272,7 @@ def reporter() -> None:
     help="increase gas price by this percentage (default 1%) ie 5 = 5%",
     nargs=1,
     type=int,
-    default=10,  # 10% above the gas price by web3
+    default=1,  # 1% above the gas price by web3
 )
 @click.option(
     "--use-estimate-fee/--no-use-estimate-fee",
