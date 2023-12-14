@@ -80,7 +80,7 @@ Usage example:
 telliot report -a <account-name> -qt pls-usd-spot -s 150000000 -ncr --fetch-flex --submit-once --use-estimate-fee
 ```
 
-That report will use the same EIP-1559 Calculations in the (eip1559.ts)[https://gitlab.com/pulsechaincom/gas-estimation/-/blob/master/src/eip1559.ts?ref_type=heads] provided by the Pulsechain. Note, that the repository was found in the footer of the Pulsechain Gas API, please see https://beacon.pulsechain.com/gasnow.
+That report will use the same EIP-1559 Calculations in the (eip1559.ts)[https://gitlab.com/pulsechaincom/gas-estimation/-/blob/master/src/eip1559.ts?ref_type=heads] provided by the Pulsechain. Note, that the Gitlab repository was found in the footer of the Pulsechain Gas API, please see https://beacon.pulsechain.com/gasnow.
 
 Expected log result example:
 ```sh
