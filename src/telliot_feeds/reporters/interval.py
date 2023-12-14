@@ -325,7 +325,7 @@ class IntervalReporter:
         if not rewards: return None
 
         percentage_increases = [
-            ((next - cur) / cur) * 100 for cur, next in zip(rewards, rewards[1:])
+            ((next - cur) // cur) * 100 for cur, next in zip(rewards, rewards[1:])
         ]
         highest_increase = max(percentage_increases)
         highest_increase_index = percentage_increases.index(highest_increase)
