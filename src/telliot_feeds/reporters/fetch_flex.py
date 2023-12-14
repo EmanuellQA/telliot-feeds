@@ -57,7 +57,10 @@ class FetchFlexReporter(IntervalReporter):
         min_native_token_balance: int = 10**18,
         check_rewards: bool = True,
         use_random_feeds: bool = False,
-        continue_reporting_on_dispute: bool = False
+        continue_reporting_on_dispute: bool = False,
+        use_estimate_fee: bool = False,
+        use_gas_api: bool = False,
+        force_nonce: Optional[int] = None
     ) -> None:
 
         self.endpoint = endpoint
@@ -85,6 +88,9 @@ class FetchFlexReporter(IntervalReporter):
         self.use_random_feeds: bool = use_random_feeds
         self.web3 = self.endpoint.web3
         self.continue_reporting_on_dispute: bool = continue_reporting_on_dispute
+        self.use_estimate_fee: bool = use_estimate_fee
+        self.use_gas_api: bool = use_gas_api        
+        self.force_nonce: Optional[int] = force_nonce
 
         self.gas_info: dict[str, Union[float, int]] = {}
         logger.info(f"Reporting with account: {self.acct_addr}")

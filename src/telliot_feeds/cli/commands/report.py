@@ -272,7 +272,24 @@ def reporter() -> None:
     help="increase gas price by this percentage (default 1%) ie 5 = 5%",
     nargs=1,
     type=int,
-    default=1,  # 1% above the gas price by web3
+    default=10,  # 10% above the gas price by web3
+)
+@click.option(
+    "--use-estimate-fee/--no-use-estimate-fee",
+    default=False,
+)
+@click.option(
+    "--use-gas-api/--no-use-gas-api",
+    default=False,
+)
+@click.option(
+    "--force-nonce",
+    "-fn",
+    "force_nonce",
+    help="Force a specific nonce when building transactions",
+    nargs=1,
+    type=int,
+    default=None,
 )
 @click.option("--rng-auto/--rng-auto-off", default=False)
 @click.option("--submit-once/--submit-continuous", default=False)
@@ -311,6 +328,9 @@ async def report(
     check_rewards: bool,
     use_random_feeds: bool,
     gas_multiplier: int,
+    use_estimate_fee: bool,
+    use_gas_api: bool,
+    force_nonce: Optional[int],
     continue_reporting_on_dispute: bool
 ) -> None:
     """Report values to Fetch oracle"""
@@ -479,7 +499,10 @@ async def report(
         else:
             reporter = FetchFlexReporter(**{
                 **common_reporter_kwargs,
-                "continue_reporting_on_dispute": continue_reporting_on_dispute
+                "continue_reporting_on_dispute": continue_reporting_on_dispute,
+                "use_estimate_fee": use_estimate_fee,
+                "use_gas_api": use_gas_api,
+                "force_nonce": force_nonce,
             }) # type: ignore
 
         if submit_once:
