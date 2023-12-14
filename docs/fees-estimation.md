@@ -1,14 +1,14 @@
 # Fees estimation
 
-There are 4 options for calculating the `maxFeePerGas` and `maxPriorityFeePerGas` fees of EIP-1559 transactions: Arbitral values, Gas API, Pulsechain gas estimator and current state with a multiplier.
+There are 4 options for calculating the `maxFeePerGas` and `maxPriorityFeePerGas` fees of EIP-1559 transactions: Arbitrary values, Gas API, Pulsechain gas estimator and current state with a multiplier.
 
 **The default value for the --gas-multiplier (or -gm) flag is 1%, which means the fees will be multiplied by 1.01 (1% above). To not multiply the fees by any value set -gm 0**
 
 **For all of the 4 options, the maxFeePerGas and maxPriorityFeePerGas calculated will be multiplied by the value of --gas-multiplier**
 
-## Arbitral values
+## Arbitrary values
 
-Manually set arbitral values with the --max-fee and --priority-fee telliot flags, for `maxFeePerGas` and `maxPriorityFeePerGas`, respectively. **The values should be in GWEI format, for example, if you want to use 1500000000 WEI as maxPriorityFeePerGas you need to pass -mf 1.5 GWEI**
+Manually set arbitrary values with the --max-fee and --priority-fee telliot flags, for `maxFeePerGas` and `maxPriorityFeePerGas`, respectively. **The values should be in GWEI format, for example, if you want to use 1500000000 WEI as maxPriorityFeePerGas you need to pass -mf 1.5 GWEI**
 
 Usage example:
 
@@ -80,7 +80,7 @@ Usage example:
 telliot report -a <account-name> -qt pls-usd-spot -s 150000000 -ncr --fetch-flex --submit-once --use-estimate-fee
 ```
 
-That report will use the same EIP-1559 Calculations in the (eip1559.ts)[https://gitlab.com/pulsechaincom/gas-estimation/-/blob/master/src/eip1559.ts?ref_type=heads] provided by the Pulsechain. Note, that the Gitlab repository was found in the footer of the Pulsechain Gas API, please see https://beacon.pulsechain.com/gasnow.
+That report will use the same EIP-1559 Calculations in the [eip1559.ts](https://gitlab.com/pulsechaincom/gas-estimation/-/blob/master/src/eip1559.ts?ref_type=heads) provided by the Pulsechain. Note, that the Gitlab repository was found in the footer of the Pulsechain Gas API, please see https://beacon.pulsechain.com/gasnow.
 
 Expected log result example:
 ```sh
