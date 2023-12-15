@@ -8,6 +8,8 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+import requests
+
 from chained_accounts import ChainedAccount
 from eth_utils import to_checksum_address
 from telliot_core.contract.contract import Contract
@@ -54,6 +56,9 @@ class IntervalReporter:
         gas_multiplier: int = 1,
         wait_period: int = 10,
         min_native_token_balance: int = 10**18,
+        use_estimate_fee: bool = False,
+        use_gas_api: bool = False,
+        force_nonce: Optional[int] = None
     ) -> None:
 
         self.endpoint = endpoint
@@ -76,6 +81,9 @@ class IntervalReporter:
         self.wait_period = wait_period
         self.min_native_token_balance = min_native_token_balance
         self.web3 = self.endpoint._web3
+        self.use_estimate_fee = use_estimate_fee
+        self.use_gas_api = use_gas_api
+        self.force_nonce: Optional[int] = force_nonce
 
         self.gas_info: dict[str, Union[float, int]] = {}
 
@@ -293,6 +301,144 @@ class IntervalReporter:
                 return None, None
         return self.priority_fee, self.max_fee
 
+    def round_to_whole_gwei(self, wei: int) -> int:
+            GWEI = 1e9
+            return (wei // GWEI + int(wei % GWEI > GWEI // 2)) * GWEI
+    
+    def get_base_fee_multiplier(self, base_fee: int) -> int:
+        GWEI = 1e9
+        if base_fee <= 40 * GWEI:
+            return 200
+        elif base_fee <= 100 * GWEI:
+            return 160
+        elif base_fee <= 200 * GWEI:
+            return 140
+        else:
+            return 120
+    
+    def calculate_priority_fee_estimate(self, fee_history) -> Optional[int]:
+        PRIORITY_FEE_INCREASE_BOUNDARY = 200
+        if not fee_history: return None
+
+        rewards = sorted([int(r[0]) for r in fee_history.get("reward", []) if int(r[0]) > 0])
+
+        if not rewards: return None
+
+        percentage_increases = [
+            ((next - cur) // cur) * 100 for cur, next in zip(rewards, rewards[1:])
+        ]
+        highest_increase = max(percentage_increases)
+        highest_increase_index = percentage_increases.index(highest_increase)
+
+        values = (
+            rewards[highest_increase_index:]
+            if highest_increase >= PRIORITY_FEE_INCREASE_BOUNDARY and highest_increase_index >= len(rewards) // 2
+            else rewards
+        )
+
+        return values[len(values) // 2]
+
+    def calculate_fees(self, base_fee, fee_history) -> dict[str, Union[float, int]]:
+        MAX_GAS_FAST = self.web3.toWei(50000000, "gwei")
+        DEFAULT_PRIORITY_FEE = self.web3.toWei(3, "gwei")
+        FALLBACK_ESTIMATE = {
+            "maxFeePerGas": self.web3.toWei(20, "gwei"),
+            "maxPriorityFeePerGas": DEFAULT_PRIORITY_FEE,
+            "baseFee": None
+        }
+
+        try:
+            estimated_priority_fee = self.calculate_priority_fee_estimate(fee_history)
+
+            max_priority_fee_per_gas = max([estimated_priority_fee or 0, DEFAULT_PRIORITY_FEE])
+
+            multiplier = self.get_base_fee_multiplier(base_fee)
+
+            potential_max_fee = (base_fee * multiplier) / 100
+            max_fee_per_gas = (
+                potential_max_fee + max_priority_fee_per_gas
+                if max_priority_fee_per_gas > potential_max_fee
+                else potential_max_fee
+            )
+
+            if max_fee_per_gas >= MAX_GAS_FAST or max_priority_fee_per_gas >= MAX_GAS_FAST:
+                raise ValueError('Estimated gas fee was much higher than expected, erroring')
+
+            return {
+                "maxFeePerGas": self.round_to_whole_gwei(max_fee_per_gas),
+                "maxPriorityFeePerGas": self.round_to_whole_gwei(max_priority_fee_per_gas),
+                "baseFee": base_fee
+            }
+        except Exception as err:
+            print(err)
+            return FALLBACK_ESTIMATE
+
+    def estimate_fees(self) -> Tuple[Optional[float], Optional[float]]:
+        FEE_HISTORY_BLOCKS = 10
+        FEE_HISTORY_PERCENTILE = 5
+        PRIORITY_FEE_ESTIMATION_TRIGGER = self.web3.toWei(100, "gwei")
+
+        latest_block = self.web3.eth.get_block('latest')
+
+        base_fee = latest_block["baseFeePerGas"]
+        block_number = latest_block["number"]
+
+        fee_history = (
+            self.web3.eth.fee_history(
+                block_count=FEE_HISTORY_BLOCKS, newest_block=block_number, reward_percentiles=[FEE_HISTORY_PERCENTILE]
+            )
+            if base_fee >= PRIORITY_FEE_ESTIMATION_TRIGGER
+            else None
+        )
+        
+        return self.calculate_fees(base_fee, fee_history)
+
+    def get_fees(self) -> Tuple[Optional[float], Optional[float]]:
+        is_fees_set = self.max_fee is not None and self.priority_fee is not None
+
+        option = None
+
+        if is_fees_set:
+            priority_fee = self.priority_fee
+            max_fee = self.max_fee
+            option = "--max-fee and --priority-fee"
+
+        if not is_fees_set and self.use_estimate_fee and not self.use_gas_api:
+            fees = self.estimate_fees()
+            priority_fee = float(self.web3.fromWei(fees["maxPriorityFeePerGas"], "gwei"))
+            max_fee = float(self.web3.fromWei(fees["maxFeePerGas"], "gwei"))
+            option = "estimate_fees"
+        elif not is_fees_set and self.use_gas_api and not self.use_estimate_fee:
+            api_url = 'https://beacon.pulsechain.com/api/v1/execution/gasnow'
+            if self.chain_id == 943:
+                api_url = 'https://beacon.v4.testnet.pulsechain.com/api/v1/execution/gasnow'
+
+            request = requests.get(url=api_url, headers={'Accept': 'application/json'})
+            gas_price_gwei = self.web3.fromWei(request.json()['data']['rapid'], "gwei") 
+            
+            priority_fee = float(gas_price_gwei)
+            max_fee = float(gas_price_gwei)
+            option = "gas_api"
+        elif not is_fees_set:
+            priority_fee, max_fee = self.get_fee_info()
+            option = "get_fee_info"
+
+        multiplier = 1.0 + (self.gas_multiplier / 100.0)
+        max_fee = max_fee * multiplier
+        priority_fee = priority_fee * multiplier
+
+        logger.info(
+            f"""
+            Fees Info:
+            Multiplier: {self.gas_multiplier}
+            Option used: "{option}"
+            Priority fee after multiplier: {priority_fee}
+            Max fee after multiplier: {max_fee}
+            """
+        )
+
+        return priority_fee, max_fee
+
     async def fetch_datafeed(self) -> Optional[DataFeed[Any]]:
         if self.datafeed is None:
             suggested_qtag = await fetch_suggested_report(self.oracle)
@@ -412,9 +558,12 @@ class IntervalReporter:
         acc_nonce, nonce_status = self.get_acct_nonce()
         if not nonce_status.ok:
             return None, nonce_status
+        
+        nonce = self.force_nonce if self.force_nonce is not None else acc_nonce
+
         # Add transaction type 2 (EIP-1559) data
         if self.transaction_type == 2:
-            priority_fee, max_fee = self.get_fee_info()
+            priority_fee, max_fee = self.get_fees()
             if priority_fee is None or max_fee is None:
                 return None, error_status("Unable to suggest type 2 txn fees", log=logger.error)
             # Set gas price to max fee used for profitability check
@@ -425,7 +574,7 @@ class IntervalReporter:
 
             built_submit_val_tx = submit_val_tx.buildTransaction(
                 {
-                    "nonce": acc_nonce,
+                    "nonce": nonce,
                     "gas": gas_limit,
                     "maxFeePerGas": self.web3.toWei(max_fee, "gwei"),
                     # TODO: Investigate more why etherscan txs using Flashbots have
@@ -451,7 +600,7 @@ class IntervalReporter:
             self.gas_info["gas_price"] = gas_price
             built_submit_val_tx = submit_val_tx.buildTransaction(
                 {
-                    "nonce": acc_nonce,
+                    "nonce": nonce,
                     "gas": gas_limit,
                     "gasPrice": self.web3.toWei(gas_price, "gwei"),
                     "chainId": self.chain_id,
