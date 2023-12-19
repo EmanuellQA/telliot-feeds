@@ -103,7 +103,7 @@ def configure_mock_price_api_env(new_price: Decimal, env_config: list[str] = Non
             prevLines = file.readlines()
             prevLines = [line if line.endswith('\n') else line + '\n' for line in prevLines]
     lines = prevLines.copy()
-    lines += [f'SERVER_PORT={MOCK_PRICE_API_PORT}\n', f'PLS_PRICE={new_price}\n']
+    lines += [f'SERVER_PORT={MOCK_PRICE_API_PORT}\n', f'PLS_PRICE={new_price}\n', 'PULSECHAIN_NODE_URL=http://localhost:8545']
     with open(env_file, 'w') as file:
         file.write("".join(lines))
     return prevLines
@@ -161,10 +161,12 @@ def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
     report_hash = None
 
     try:
-        report = f'telliot report -a {account_name} -ncr -qt pls-usd-spot --fetch-flex --submit-once -s {stake_amount} -mf 1 -pf 1'
+        report = f'telliot report -a {account_name} -ncr -qt pls-usd-spot --fetch-flex --submit-once -s {stake_amount} -gm 20'
         logger.info(f"Submitting report: {report}")
         report_process = pexpect.spawn(report, timeout=120)
         report_process.logfile = sys.stdout.buffer
+        report_process.expect("\w+\r\n")
+        report_process.expect("\w+\r\n")
         report_process.expect("\w+\r\n")
         report_process.sendline('y')
         report_process.expect("\w+\r\n")
