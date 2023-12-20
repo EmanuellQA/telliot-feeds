@@ -133,7 +133,7 @@ def switch_mock_price_git_branch(branch_name: str) -> None:
 
     print(f"Mock Price API git branch switched to {branch_name}")
 
-def _configure_telliot_env(env_config: list[str] = None) -> list[str]:
+def _configure_telliot_env_with_mock_price(env_config: list[str] = None) -> list[str]:
     current_dir = Path(__file__).parent.absolute()
     telliot_path = current_dir.parent.absolute() / 'telliot-feeds'
     env_file = telliot_path / '.env'
@@ -157,9 +157,7 @@ def _configure_telliot_env(env_config: list[str] = None) -> list[str]:
     return prev_env_config
 
 def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
-    prev_env_config = _configure_telliot_env()
-    report_hash = None
-
+    report_hash = ""
     try:
         report = f'telliot report -a {account_name} -ncr -qt pls-usd-spot --fetch-flex --submit-once -s {stake_amount} -gm 20'
         logger.info(f"Submitting report: {report}")
@@ -188,7 +186,6 @@ def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
         logger.error("Submit report with telliot error:")
         logger.error(e)
     finally:
-        _configure_telliot_env(prev_env_config)
         return report_hash
 
 def write_price_to_file(price: Decimal, hash: str) -> None:
@@ -265,8 +262,6 @@ def main():
     except Exception:
         pass
 
-    report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
-
     contract = Contract.create(
         oracle_address=oracle_address,
         provider_url=provider_url
@@ -280,6 +275,10 @@ def main():
     mock_price_env = configure_mock_price_api_env(new_price)
     mock_price_ps = initialize_mock_price_api()
     logger.info(f"MOCK_PRICE_API initialized with price {new_price}")
+
+    prev_env_config = _configure_telliot_env_with_mock_price()
+    report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=str(int(stake_amount)*10))
+    _configure_telliot_env_with_mock_price(prev_env_config)
 
     configure_mock_price_api_env(0, mock_price_env)
 
