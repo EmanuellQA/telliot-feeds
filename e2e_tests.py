@@ -159,7 +159,7 @@ def _configure_telliot_env_with_mock_price(env_config: list[str] = None) -> list
 def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
     report_hash = ""
     try:
-        report = f'telliot report -a {account_name} -ncr -qt pls-usd-spot --fetch-flex --submit-once -s {stake_amount} -gm 20'
+        report = f'telliot report -a {account_name} -ncr -qt pls-usd-spot --fetch-flex --submit-once -s {stake_amount} -mf 80000 -pf 1.5 -gm 20'
         logger.info(f"Submitting report: {report}")
         report_process = pexpect.spawn(report, timeout=120)
         report_process.logfile = sys.stdout.buffer
@@ -257,10 +257,19 @@ def main():
         oracle address: {oracle_address}
     """)
 
+    mock_price_env = configure_mock_price_api_env('0.000062')
+    mock_price_ps = initialize_mock_price_api()
+    
     try:
+        prev_env_config = _configure_telliot_env_with_mock_price()
         submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
-    except Exception:
-        pass
+        _configure_telliot_env_with_mock_price(prev_env_config)
+    except Exception as e:
+        logger.error("Submit report with telliot error:")
+        logger.error(e)
+    finally:
+        configure_mock_price_api_env(0, mock_price_env)
+        os.killpg(os.getpgid(mock_price_ps.pid), signal.SIGTERM)
 
     contract = Contract.create(
         oracle_address=oracle_address,
