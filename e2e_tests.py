@@ -259,9 +259,13 @@ def main():
 
     mock_price_env = configure_mock_price_api_env('0.000062')
     mock_price_ps = initialize_mock_price_api()
+
+    # first report to avoid "transaction reverted" error (when using ganache, see mock-deployment.sh in monorepo/e2e_tests folder)
+    # todo update mock to use anvil -> no need to submit a report before
+    prev_env_config = _configure_telliot_env_with_mock_price()
+    submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
     
     try:
-        prev_env_config = _configure_telliot_env_with_mock_price()
         submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
         _configure_telliot_env_with_mock_price(prev_env_config)
     except Exception as e:
