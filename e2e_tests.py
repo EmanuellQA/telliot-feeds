@@ -289,6 +289,7 @@ def main():
     mock_price_ps = initialize_mock_price_api()
     logger.info(f"MOCK_PRICE_API initialized with price {new_price}")
 
+    # todo, stake * 10 is not enough, needs to set REPORT_LOCK_TIME=1 to avoid lock time error
     prev_env_config = _configure_telliot_env_with_mock_price()
     report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=str(int(stake_amount)*10))
     _configure_telliot_env_with_mock_price(prev_env_config)
