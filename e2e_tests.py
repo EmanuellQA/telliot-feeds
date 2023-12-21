@@ -11,6 +11,7 @@ from decimal import *
 from web3 import Web3
 from telliot_core.directory import contract_directory
 import re
+import time
 
 MOCK_PRICE_API_PORT=3001
 
@@ -154,6 +155,8 @@ def _configure_telliot_env_with_mock_price(env_config: list[str] = None) -> list
     with open(env_file, 'w') as file:
         file.write(f"COINGECKO_MOCK_URL=http://localhost:{MOCK_PRICE_API_PORT}/coingecko")
     logger.info(f"TELLIOT env configuration updated")
+    logger.info(f"Waiting 3s for file sync to the disk")
+    time.sleep(3)
     return prev_env_config
 
 def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
