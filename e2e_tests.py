@@ -139,6 +139,8 @@ def _configure_telliot_env_with_mock_price(env_config: list[str] = None) -> list
     telliot_path = current_dir.parent.absolute() / 'telliot-feeds'
     env_file = telliot_path / '.env'
 
+    logger.debug(f"path for the .env file:{env_file}")
+
     if env_config != None:
         with open(env_file, 'w') as file:
             file.write("".join(env_config))
@@ -156,7 +158,15 @@ def _configure_telliot_env_with_mock_price(env_config: list[str] = None) -> list
         file.write(f"COINGECKO_MOCK_URL=http://localhost:{MOCK_PRICE_API_PORT}/coingecko")
     logger.info(f"TELLIOT env configuration updated")
     logger.info(f"Waiting 3s for file sync to the disk")
+
+    logger.debug(f"begin of .env file content:")
+    if env_file.exists():
+        with open(env_file, 'r') as file:
+            config_content = file.readlines()
+            logger.debug("\n".join(config_content))
+    logger.debug(f"end of .env file content:")
     time.sleep(3)
+
     return prev_env_config
 
 def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
