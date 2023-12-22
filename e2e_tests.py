@@ -276,10 +276,10 @@ def main():
     # first report to avoid "transaction reverted" error (when using ganache, see mock-deployment.sh in monorepo/e2e_tests folder)
     # todo update mock to use anvil -> no need to submit a report before
     prev_env_config = _configure_telliot_env_with_mock_price()
-    submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
+    report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
     
     try:
-        submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
+        report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
         _configure_telliot_env_with_mock_price(prev_env_config)
     except Exception as e:
         logger.error("Submit report with telliot error:")
@@ -304,7 +304,7 @@ def main():
 
     # todo, stake * 10 is not enough, needs to set REPORT_LOCK_TIME=1 to avoid lock time error
     prev_env_config = _configure_telliot_env_with_mock_price()
-    report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=str(int(stake_amount)*10))
+    submit_report_with_telliot(account_name=account_name, stake_amount=str(int(stake_amount)*10))
     _configure_telliot_env_with_mock_price(prev_env_config)
 
     configure_mock_price_api_env(0, mock_price_env)
