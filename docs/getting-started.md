@@ -218,6 +218,8 @@ You can get started with telliot report by running the following telliot command
 telliot report -a myacct1 -qt pls-usd-spot-vwap --fetch-flex
 ```
 
+There are also additional flags you can pass to use a specific strategy for calculating `maxFeePerGas` and `maxPriorityFeePerGas` for EIP-1559 transactions, please see [Fees Estimation](./fees-estimation.md).
+
 ### Configure endpoint via CLI
 
 To configure your endpoint via the CLI, use the `report` command and enter `n` when asked if you want to keep the default settings:
