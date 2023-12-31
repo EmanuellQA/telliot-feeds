@@ -11,6 +11,7 @@ from decimal import *
 from web3 import Web3
 from telliot_core.directory import contract_directory
 import re
+import time
 
 MOCK_PRICE_API_PORT=3001
 
@@ -103,7 +104,7 @@ def configure_mock_price_api_env(new_price: Decimal, env_config: list[str] = Non
             prevLines = file.readlines()
             prevLines = [line if line.endswith('\n') else line + '\n' for line in prevLines]
     lines = prevLines.copy()
-    lines += [f'SERVER_PORT={MOCK_PRICE_API_PORT}\n', f'PLS_PRICE={new_price}\n']
+    lines += [f'SERVER_PORT={MOCK_PRICE_API_PORT}\n', f'PLS_PRICE={new_price}\n', 'PULSECHAIN_NODE_URL=http://localhost:8545']
     with open(env_file, 'w') as file:
         file.write("".join(lines))
     return prevLines
@@ -133,10 +134,12 @@ def switch_mock_price_git_branch(branch_name: str) -> None:
 
     print(f"Mock Price API git branch switched to {branch_name}")
 
-def _configure_telliot_env(env_config: list[str] = None) -> list[str]:
+def _configure_telliot_env_with_mock_price(env_config: list[str] = None) -> list[str]:
     current_dir = Path(__file__).parent.absolute()
     telliot_path = current_dir.parent.absolute() / 'telliot-feeds'
     env_file = telliot_path / '.env'
+
+    logger.debug(f"path for the .env file:{env_file}")
 
     if env_config != None:
         with open(env_file, 'w') as file:
@@ -154,17 +157,27 @@ def _configure_telliot_env(env_config: list[str] = None) -> list[str]:
     with open(env_file, 'w') as file:
         file.write(f"COINGECKO_MOCK_URL=http://localhost:{MOCK_PRICE_API_PORT}/coingecko")
     logger.info(f"TELLIOT env configuration updated")
+    logger.info(f"Waiting 3s for file sync to the disk")
+
+    logger.debug(f"begin of .env file content:")
+    if env_file.exists():
+        with open(env_file, 'r') as file:
+            config_content = file.readlines()
+            logger.debug("\n".join(config_content))
+    logger.debug(f"end of .env file content:")
+    time.sleep(3)
+
     return prev_env_config
 
 def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
-    prev_env_config = _configure_telliot_env()
-    report_hash = None
-
+    report_hash = ""
     try:
-        report = f'telliot report -a {account_name} -ncr -qt pls-usd-spot --fetch-flex --submit-once -s {stake_amount} -mf 1 -pf 1'
+        report = f'telliot report -a {account_name} -ncr -qt pls-usd-spot --fetch-flex --submit-once -s {stake_amount} -mf 80000 -pf 1.5 -gm 20'
         logger.info(f"Submitting report: {report}")
         report_process = pexpect.spawn(report, timeout=120)
         report_process.logfile = sys.stdout.buffer
+        report_process.expect("\w+\r\n")
+        report_process.expect("\w+\r\n")
         report_process.expect("\w+\r\n")
         report_process.sendline('y')
         report_process.expect("\w+\r\n")
@@ -186,7 +199,6 @@ def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
         logger.error("Submit report with telliot error:")
         logger.error(e)
     finally:
-        _configure_telliot_env(prev_env_config)
         return report_hash
 
 def write_price_to_file(price: Decimal, hash: str) -> None:
@@ -258,12 +270,23 @@ def main():
         oracle address: {oracle_address}
     """)
 
-    try:
-        submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
-    except Exception:
-        pass
+    mock_price_env = configure_mock_price_api_env('0.000062')
+    mock_price_ps = initialize_mock_price_api()
 
+    # first report to avoid "transaction reverted" error (when using ganache, see mock-deployment.sh in monorepo/e2e_tests folder)
+    # todo update mock to use anvil -> no need to submit a report before
+    prev_env_config = _configure_telliot_env_with_mock_price()
     report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
+    
+    try:
+        report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
+        _configure_telliot_env_with_mock_price(prev_env_config)
+    except Exception as e:
+        logger.error("Submit report with telliot error:")
+        logger.error(e)
+    finally:
+        configure_mock_price_api_env(0, mock_price_env)
+        os.killpg(os.getpgid(mock_price_ps.pid), signal.SIGTERM)
 
     contract = Contract.create(
         oracle_address=oracle_address,
@@ -278,6 +301,11 @@ def main():
     mock_price_env = configure_mock_price_api_env(new_price)
     mock_price_ps = initialize_mock_price_api()
     logger.info(f"MOCK_PRICE_API initialized with price {new_price}")
+
+    # todo, stake * 10 is not enough, needs to set REPORT_LOCK_TIME=1 to avoid lock time error
+    prev_env_config = _configure_telliot_env_with_mock_price()
+    submit_report_with_telliot(account_name=account_name, stake_amount=str(int(stake_amount)*10))
+    _configure_telliot_env_with_mock_price(prev_env_config)
 
     configure_mock_price_api_env(0, mock_price_env)
 
