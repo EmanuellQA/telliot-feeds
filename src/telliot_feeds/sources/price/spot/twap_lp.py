@@ -1,18 +1,13 @@
 import os
 from decimal import *
-from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
 import asyncio
 
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
-from eth_utils.conversions import to_bytes
-from eth_abi import decode_abi
 from web3 import Web3
 
-import requests
 import json
 
 from telliot_feeds.dtypes.datapoint import datetime_now_utc
@@ -114,13 +109,13 @@ class TWAPLPSpotPriceService(WebPriceService):
     async def _update_cumulative_prices_json_after_time(self, wait_time: int, contract_address: str, key: str):
         logger.info(f"TWAP Service: waiting {wait_time:.2f} seconds to update cumulative prices data")
         await asyncio.sleep(wait_time)
-        price0CumulativeLast, price1CumulativeLast, _blockTimestampLast = self._callPricesCumulativeLast(
+        price0CumulativeLast, price1CumulativeLast, reserve0, reserve1, blockTimestampLast = self._callPricesCumulativeLast(
             contract_address
         )
         self._update_cumulative_prices_json(
             price0CumulativeLast,
             price1CumulativeLast,
-            _blockTimestampLast,
+            blockTimestampLast,
             key
         )
         logger.info(f"TWAP Service: updated cumulative prices {key} data in {self.prevPricesPath.resolve()}")
@@ -179,7 +174,14 @@ class TWAPLPSpotPriceService(WebPriceService):
             try:
                 w3 = Web3(Web3.HTTPProvider(self.url, request_kwargs={'timeout': self.timeout}))
                 contract = w3.eth.contract(address=contract_address, abi=self.ABI)
-                return contract.functions.getReserves().call()
+                reserve0, reserve1, blockTimestamp = contract.functions.getReserves().call()
+                logger.debug(f"""
+                _callGetReserves({contract_address}) returned:
+                                reserve0: {reserve0}
+                                reserve1: {reserve1}
+                                blockTimestamp: {blockTimestamp}
+                            """)
+                return reserve0, reserve1, blockTimestamp
             except Exception as e:
                 retry_count += 1
                 logger.error(
@@ -198,14 +200,14 @@ class TWAPLPSpotPriceService(WebPriceService):
                 contract = w3.eth.contract(address=contract_address, abi=self.ABI)
                 price0CumulativeLast = contract.functions.price0CumulativeLast().call()
                 price1CumulativeLast = contract.functions.price1CumulativeLast().call()
-                _, _, _blockTimestampLast = self._callGetReserves(contract_address)
+                reserve0, reserve1, _blockTimestampLast = self._callGetReserves(contract_address)
                 logger.debug(f"""   
                 _callPricesCumulativeLast({contract_address}) returned:
                                 price0CumulativeLast: {price0CumulativeLast}
                                 price1CumulativeLast: {price1CumulativeLast}
                                 _blockTimestampLast: {_blockTimestampLast}
                           """)
-                return price0CumulativeLast, price1CumulativeLast, _blockTimestampLast
+                return price0CumulativeLast, price1CumulativeLast, reserve0, reserve1, _blockTimestampLast
             except Exception as e:
                 retry_count += 1
                 logger.error(
@@ -250,7 +252,7 @@ class TWAPLPSpotPriceService(WebPriceService):
 
         if key not in json_data.keys():
             address = self.contract_addresses[currency]
-            price0CumulativeLast, price1CumulativeLast, _blockTimestampLast = self._callPricesCumulativeLast(address)
+            price0CumulativeLast, price1CumulativeLast, reserve0, reserve1, _blockTimestampLast = self._callPricesCumulativeLast(address)
             self._update_cumulative_prices_json(
                 price0CumulativeLast,
                 price1CumulativeLast,
@@ -314,7 +316,9 @@ class TWAPLPSpotPriceService(WebPriceService):
         price0Cumulative: int,
         price1Cumulative: int,
         blockTimestampLast: int,
-        currentTimesamp: int
+        currentTimesamp: int,
+        reserve0,
+        reserve1
     ) -> tuple[int]:
         logger.debug(f"""   
                         call _calculate_cumulative_price({address}, 
@@ -328,7 +332,6 @@ class TWAPLPSpotPriceService(WebPriceService):
         logger.debug(f"""   
                     timeElapsed: {timeElapsed}
                     """)
-        reserve0, reserve1, _ = self._callGetReserves(address)
         logger.debug(f"""   
                     reserve0: {reserve0}
                     reserve1: {reserve1}
@@ -358,7 +361,7 @@ class TWAPLPSpotPriceService(WebPriceService):
     ) -> tuple[int]:
         address = self.contract_addresses[currency]
 
-        price0CumulativeLast, price1CumulativeLast, blockTimestampLast = self._callPricesCumulativeLast(address)
+        price0CumulativeLast, price1CumulativeLast, reserve0, reserve1, blockTimestampLast = self._callPricesCumulativeLast(address)
 
         blockTimestamp = self._get_current_block_timestamp()
         if blockTimestamp != blockTimestampLast:
@@ -374,7 +377,9 @@ class TWAPLPSpotPriceService(WebPriceService):
                 price0CumulativeLast,
                 price1CumulativeLast,
                 blockTimestampLast,
-                blockTimestamp
+                blockTimestamp,
+                reserve0,
+                reserve1
             )
             logger.info(
                 f"""
@@ -384,7 +389,7 @@ class TWAPLPSpotPriceService(WebPriceService):
                 currentPrice1 / prevPrice1: {price1CumulativeLast} / {prevPrice1CumulativeLast}
                 """
             )
-        return price0CumulativeLast, price1CumulativeLast, blockTimestamp
+        return price0CumulativeLast, price1CumulativeLast, reserve0, reserve1, blockTimestamp
         
     def calculate_twap(
         self,
@@ -407,8 +412,7 @@ class TWAPLPSpotPriceService(WebPriceService):
         )
         return twap_price
 
-    def _get_total_value_locked(self, currency: str):
-        reserve0, reserve1, _ = self._callGetReserves(self.contract_addresses[currency])
+    def _get_total_value_locked(self, currency: str, reserve0, reserve1):
         token0, _ = self.lps_order[currency].split('/')
         if "pls" not in token0.strip():
             reserve0, reserve1 = reserve1, reserve0
@@ -439,7 +443,7 @@ class TWAPLPSpotPriceService(WebPriceService):
                 currency
             )
 
-            price0CumulativeLast, price1CumulativeLast, blockTimestampLast = self.get_currentPrices(
+            price0CumulativeLast, price1CumulativeLast, reserve0, reserve1, blockTimestampLast = self.get_currentPrices(
                 prevPrice0CumulativeLast,
                 prevPrice1CumulativeLast,
                 prevBlockTimestampLast,
@@ -460,7 +464,9 @@ class TWAPLPSpotPriceService(WebPriceService):
                     price0CumulativeLast,
                     price1CumulativeLast,
                     blockTimestampLast,
-                    blockTimestampLast + remaining_time
+                    blockTimestampLast + remaining_time,
+                    reserve0,
+                    reserve1
                 )
                 blockTimestampLast += remaining_time
                 
@@ -501,7 +507,7 @@ class TWAPLPSpotPriceService(WebPriceService):
             LP contract address: {self.contract_addresses[currency]}
             """)
 
-            weight = self._get_total_value_locked(currency)
+            weight = self._get_total_value_locked(currency, reserve0, reserve1)
 
             return price, datetime_now_utc(), float(weight)
         except Exception as e:
