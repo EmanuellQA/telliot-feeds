@@ -199,6 +199,12 @@ class TWAPLPSpotPriceService(WebPriceService):
                 price0CumulativeLast = contract.functions.price0CumulativeLast().call()
                 price1CumulativeLast = contract.functions.price1CumulativeLast().call()
                 _, _, _blockTimestampLast = self._callGetReserves(contract_address)
+                logger.debug(f"""   
+                _callPricesCumulativeLast({contract_address}) returned:
+                                price0CumulativeLast: {price0CumulativeLast}
+                                price1CumulativeLast: {price1CumulativeLast}
+                                _blockTimestampLast: {_blockTimestampLast}
+                          """)
                 return price0CumulativeLast, price1CumulativeLast, _blockTimestampLast
             except Exception as e:
                 retry_count += 1
@@ -252,6 +258,12 @@ class TWAPLPSpotPriceService(WebPriceService):
                 key
             )
             logger.info(f'Cumulative prices JSON {key} data initialized')
+            logger.debug(f"""   
+                        call get_prev_prices_cumulative({currency}) returned:
+                                price0CumulativeLast: {price0CumulativeLast}
+                                price1CumulativeLast: {price1CumulativeLast}
+                                _blockTimestampLast: {_blockTimestampLast}
+                          """)
             return price0CumulativeLast, price1CumulativeLast, _blockTimestampLast
 
         logger.info(f'Cumulative prices JSON {key} data found')
@@ -259,6 +271,12 @@ class TWAPLPSpotPriceService(WebPriceService):
             prevPrice0CumulativeLast = int(json_data[key]['price0CumulativeLast'])
             prevPrice1CumulativeLast = int(json_data[key]['price1CumulativeLast'])
             prevBlockTimestampLast = int(json_data[key]['blockTimestampLast'])
+            logger.debug(f"""   
+                        call get_prev_prices_cumulative({currency}) returned:
+                                prevPrice0CumulativeLast: {prevPrice0CumulativeLast}
+                                prevPrice1CumulativeLast: {prevPrice1CumulativeLast}
+                                prevBlockTimestampLast:  {prevBlockTimestampLast}
+                          """)
             return prevPrice0CumulativeLast, prevPrice1CumulativeLast, prevBlockTimestampLast
         except (json.decoder.JSONDecodeError, ValueError) as e: 
             logger.error(f"""
@@ -279,10 +297,17 @@ class TWAPLPSpotPriceService(WebPriceService):
             logger.error(e)
 
     def _get_current_block_timestamp(self):
+        logger.debug(f"""   
+                        call _get_current_block_timestamp():
+                     """)
         w3 = Web3(Web3.HTTPProvider(self.url))
         block = w3.eth.getBlock("latest")
         timestamp = block.timestamp
-        return timestamp % 2**32
+        timestamp = timestamp % 2**32
+        logger.debug(f"""   
+                        returned timestamp {timestamp}
+                     """)
+        return timestamp
     
     def _calculate_cumulative_price(
         self, address: str,
@@ -291,12 +316,37 @@ class TWAPLPSpotPriceService(WebPriceService):
         blockTimestampLast: int,
         currentTimesamp: int
     ) -> tuple[int]:
+        logger.debug(f"""   
+                        call _calculate_cumulative_price({address}, 
+                                                         {price0Cumulative}, 
+                                                         {price1Cumulative}, 
+                                                         {blockTimestampLast}, 
+                                                         {currentTimesamp}):
+                          """)
+
         timeElapsed = currentTimesamp - blockTimestampLast
+        logger.debug(f"""   
+                    timeElapsed: {timeElapsed}
+                    """)
         reserve0, reserve1, _ = self._callGetReserves(address)
+        logger.debug(f"""   
+                    reserve0: {reserve0}
+                    reserve1: {reserve1}
+                    """)
         fixed_point_fraction0 = (reserve1 / reserve0) * (2 ** 112)
         fixed_point_fraction1 = (reserve0 / reserve1) * (2 ** 112)
+        logger.debug(f"""   
+                    fixed_point_fraction0: {fixed_point_fraction0}
+                    fixed_point_fraction1: {fixed_point_fraction1}
+                    """)
         price0Cumulative += int(fixed_point_fraction0) * timeElapsed
         price1Cumulative += int(fixed_point_fraction1) * timeElapsed
+        logger.debug(f"""   
+                    returned:
+                    price0Cumulative: {price0Cumulative}, 
+                    price1Cumulative: {price1Cumulative}:
+                    """)
+
         return price0Cumulative, price1Cumulative
 
     def get_currentPrices(
