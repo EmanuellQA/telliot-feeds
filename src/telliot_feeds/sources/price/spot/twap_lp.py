@@ -115,6 +115,7 @@ class TWAPLPSpotPriceService(WebPriceService):
             contract_address
         )
         async with self.lock_json:
+            logger.debug(f"lock acquired for TWAP")
             self._update_cumulative_prices_json(
                 price0CumulativeLast,
                 price1CumulativeLast,
@@ -442,6 +443,7 @@ class TWAPLPSpotPriceService(WebPriceService):
         await self.handleActivateTwapService(currency)
 
         await self.lock_json.acquire()
+        logger.debug(f"lock acquired for Reporter")
         try:
             prevPrice0CumulativeLast, prevPrice1CumulativeLast, prevBlockTimestampLast = self.get_prev_prices_cumulative(
                 currency
@@ -519,6 +521,7 @@ class TWAPLPSpotPriceService(WebPriceService):
             return None, None
         finally:
             self.lock_json.release()
+            logger.debug(f"lock released for Reporter")
 
 @dataclass
 class TWAPLPSpotPriceSource(PriceSource):
