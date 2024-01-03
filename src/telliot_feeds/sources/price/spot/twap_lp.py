@@ -84,6 +84,8 @@ class TWAPLPSpotPriceService(WebPriceService):
         self.isTwapServiceActive = False
         self.reporter_start_time = None
 
+        self.lock_json = asyncio.Lock()
+
         super().__init__(**kwargs)
 
     async def handleInitializeSource(self, currency: str):
@@ -112,13 +114,14 @@ class TWAPLPSpotPriceService(WebPriceService):
         price0CumulativeLast, price1CumulativeLast, reserve0, reserve1, blockTimestampLast = self._callPricesCumulativeLast(
             contract_address
         )
-        self._update_cumulative_prices_json(
-            price0CumulativeLast,
-            price1CumulativeLast,
-            blockTimestampLast,
-            key
-        )
-        logger.info(f"TWAP Service: updated cumulative prices {key} data in {self.prevPricesPath.resolve()}")
+        async with self.lock_json:
+            self._update_cumulative_prices_json(
+                price0CumulativeLast,
+                price1CumulativeLast,
+                blockTimestampLast,
+                key
+            )
+            logger.info(f"TWAP Service: updated cumulative prices {key} data in {self.prevPricesPath.resolve()}")
 
     async def initializeTwapService(self, currency: str):
         logger.info(
@@ -438,6 +441,7 @@ class TWAPLPSpotPriceService(WebPriceService):
         await self.handleInitializeSource(currency)
         await self.handleActivateTwapService(currency)
 
+        await self.lock_json.acquire()
         try:
             prevPrice0CumulativeLast, prevPrice1CumulativeLast, prevBlockTimestampLast = self.get_prev_prices_cumulative(
                 currency
@@ -513,6 +517,8 @@ class TWAPLPSpotPriceService(WebPriceService):
         except Exception as e:
             logger.error(e)
             return None, None
+        finally:
+            self.lock_json.release()
 
 @dataclass
 class TWAPLPSpotPriceSource(PriceSource):
