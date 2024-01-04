@@ -77,7 +77,7 @@ class TWAPLPSpotPriceService(WebPriceService):
 
         self.prevPricesPath: Path = Path('./prevPricesCumulative.json') 
         self.max_retries = int(os.getenv('MAX_RETRIES', 5))
-        self.TWAP_TIMESPAN = int(os.getenv('TWAP_TIMESPAN', 60))
+        self.TWAP_TIMESPAN = int(os.getenv('TWAP_TIMESPAN', 1800))
         self.FETCH_LP_INTERVAL = int(os.getenv('FETCH_LP_INTERVAL', 60))
 
         self.isSourceInitialized = False
@@ -266,10 +266,10 @@ class TWAPLPSpotPriceService(WebPriceService):
         if len(json_data[key]) > 0:
             last_data_point = json_data[key][-1]
             if (
-                last_data_point['price0CumulativeLast'] == str(price0CumulativeLast) and
-                last_data_point['price1CumulativeLast'] == str(price1CumulativeLast) and
-                last_data_point['reserve0'] == str(reserve0) and
-                last_data_point['reserve1'] == str(reserve1) and
+                last_data_point['price0CumulativeLast'] == str(price0CumulativeLast) or
+                last_data_point['price1CumulativeLast'] == str(price1CumulativeLast) or
+                last_data_point['reserve0'] == str(reserve0) or
+                last_data_point['reserve1'] == str(reserve1) or
                 last_data_point['blockTimestampLast'] == str(blockTimestampLast)
             ):
                 logger.info(f"Last data point in {key} JSON is the same as the current one, skipping update")
