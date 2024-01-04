@@ -107,6 +107,7 @@ class TWAPLPSpotPriceService(WebPriceService):
             blockTimestampLast,
             key
         )
+        await self.handleActivateTwapService(currency)
         await asyncio.sleep(self.TWAP_TIMESPAN)
         logger.info(f"REPORTER: JSON {key} initialized")
 
@@ -573,7 +574,6 @@ class TWAPLPSpotPriceService(WebPriceService):
             return None, None
         
         await self.handleInitializeSource(currency)
-        await self.handleActivateTwapService(currency)
 
         try:
             price0CumulativeLast, price1CumulativeLast, reserve0, reserve1, blockTimestampLast = self.get_currentPrices(
