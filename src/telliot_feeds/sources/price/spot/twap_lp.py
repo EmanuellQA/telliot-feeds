@@ -263,6 +263,17 @@ class TWAPLPSpotPriceService(WebPriceService):
             logger.info(f"Found old invalid JSON format, initializing {key} to a list of data points")
             json_data[key] = []
 
+        if len(json_data[key]) > 0:
+            last_data_point = json_data[key][-1]
+            if (
+                last_data_point['price0CumulativeLast'] == str(price0CumulativeLast) and
+                last_data_point['price1CumulativeLast'] == str(price1CumulativeLast) and
+                last_data_point['reserve0'] == str(reserve0) and
+                last_data_point['reserve1'] == str(reserve1) and
+                last_data_point['blockTimestampLast'] == str(blockTimestampLast)
+            ):
+                logger.info(f"Last data point in {key} JSON is the same as the current one, skipping update")
+                return
 
         new_data = {
             'price0CumulativeLast': str(price0CumulativeLast),
