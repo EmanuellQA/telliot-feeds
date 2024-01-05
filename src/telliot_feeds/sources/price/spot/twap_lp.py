@@ -95,12 +95,6 @@ class TWAPLPSpotPriceService(WebPriceService):
     async def handleInitializeSource(self, currency: str):
         if self.isSourceInitialized: return
         self.isSourceInitialized = True
-        add_multicall_support(
-            network="PulsechainTestnet", network_id=943, multicall3_address="0x207cc7e2141Db4244BE07093CAf5df9a089128F2"
-        )
-        add_multicall_support(
-            network="PulsechainMainnet", network_id=369, multicall3_address="0xca11bde05977b3631167028862be2a173976ca11"
-        )
         self.contract_addresses: dict[str, str] = self._get_contract_address()
         self.lps_order: dict[str, str] = self._get_lps_order()
         logger.info(f"Reporter: initial startup waiting TWAP period ({self.TWAP_TIMESPAN} seconds)")
