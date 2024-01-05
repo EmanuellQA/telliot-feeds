@@ -2,7 +2,6 @@ import os
 from decimal import *
 from pathlib import Path
 import asyncio
-from typing import Optional
 
 from dataclasses import dataclass
 from dataclasses import field
@@ -11,13 +10,10 @@ from web3 import Web3
 from multicall import Call
 from multicall import Multicall
 from web3.exceptions import ContractLogicError
-from multicall.constants import MULTICALL2_ADDRESSES
-from multicall.constants import MULTICALL3_ADDRESSES
-from multicall.constants import Network
-from multicall.constants import NO_STATE_OVERRIDE
 
 import json
 
+from telliot_feeds.reporters.tips import add_multicall_support
 from telliot_feeds.dtypes.datapoint import datetime_now_utc
 from telliot_feeds.dtypes.datapoint import OptionalDataPoint
 from telliot_feeds.pricing.price_service import WebPriceService
@@ -96,39 +92,17 @@ class TWAPLPSpotPriceService(WebPriceService):
 
         super().__init__(**kwargs)
 
-    def add_multicall_support(
-        self,
-        network: str,
-        network_id: int,
-        state_override: bool = True,
-        multicall2_address: Optional[str] = None,
-        multicall3_address: Optional[str] = None,
-    ) -> None:
-        if not hasattr(Network, network):
-            setattr(Network, network, network_id)
-            attr = getattr(Network, network)
-            if not state_override:
-                NO_STATE_OVERRIDE.append(attr)
-            if multicall2_address:
-                MULTICALL2_ADDRESSES[attr] = multicall2_address
-            else:
-                MULTICALL3_ADDRESSES[attr] = multicall3_address
-        else:
-            logger.info(f"Network {network} already exists in multicall package")
-
     async def handleInitializeSource(self, currency: str):
         if self.isSourceInitialized: return
         self.isSourceInitialized = True
-        self.add_multicall_support(
+        add_multicall_support(
             network="PulsechainTestnet", network_id=943, multicall3_address="0x207cc7e2141Db4244BE07093CAf5df9a089128F2"
         )
-
-        self.add_multicall_support(
+        add_multicall_support(
             network="PulsechainMainnet", network_id=369, multicall3_address="0xca11bde05977b3631167028862be2a173976ca11"
         )
         self.contract_addresses: dict[str, str] = self._get_contract_address()
         self.lps_order: dict[str, str] = self._get_lps_order()
-        self.reporter_event_loop = asyncio.get_running_loop()
         logger.info(f"Reporter: initial startup waiting TWAP period ({self.TWAP_TIMESPAN} seconds)")
         price0CumulativeLast, price1CumulativeLast, reserve0, reserve1, blockTimestampLast = await self._callPricesCumulativeLast(
             self.contract_addresses[currency]
