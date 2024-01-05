@@ -213,7 +213,8 @@ class TWAPLPSpotPriceService(WebPriceService):
                 contract = w3.eth.contract(address=contract_address, abi=self.ABI)
                 price0CumulativeLast = contract.functions.price0CumulativeLast().call()
                 price1CumulativeLast = contract.functions.price1CumulativeLast().call()
-                reserve0, reserve1, _blockTimestampLast = self._callGetReserves(contract_address)
+                reserve0, reserve1, _blockTimestampLast = contract.functions.getReserves().call()
+                #reserve0, reserve1, _blockTimestampLast = self._callGetReserves(contract_address)
                 logger.debug(f"""   
                 _callPricesCumulativeLast({contract_address}) returned:
                                 price0CumulativeLast: {price0CumulativeLast}
