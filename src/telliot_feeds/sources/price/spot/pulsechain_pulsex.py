@@ -73,7 +73,7 @@ def get_amount_out(amount_in, reserve_in, reserve_out):
     amount_in_with_fee = amount_in*997
     numerator = amount_in_with_fee*reserve_out
     denominator = reserve_in*1000 + amount_in_with_fee
-    return int(numerator/denominator)
+    return float(numerator/denominator)
 
 class PulsechainPulseXService(WebPriceService):
     """Pulsechain PulseX Price Service for PLS/USD feed"""
@@ -113,6 +113,12 @@ class PulsechainPulseXService(WebPriceService):
             if "pls" not in token0.strip():
                 reserve0, reserve1 = reserve1, reserve0
 
+            logger.info(f"""
+                Debugging reservers for {asset}-{currency}:
+                reserve0: {reserve0}
+                reserve1: {reserve1}
+            """)
+
             val = get_amount_out(1e18, reserve0, reserve1)
 
             vl0 = ((1e18 * reserve1) / (reserve0 + 1e18)) * reserve0 #value locked token0 without fees
@@ -127,6 +133,12 @@ class PulsechainPulseXService(WebPriceService):
             price = float(val / 1e18)
             if currency == 'usdc' or currency == 'usdt':
                 price = price * 1e12 #scale usdc 
+
+            logger.info(f"""
+                LP price for {asset}-{currency}: {price}
+                LP contract address: {contract_addr}
+            """)
+            
             return price, timestamp, float(tvl)
         except Exception as e:
             msg = f"Error parsing Pulsechain Sec Oracle response: KeyError: {e}"
