@@ -112,6 +112,9 @@ class PulsechainPulseXService(WebPriceService):
             token0, _ = pls_lps_order[currency].split('/')
             if "pls" not in token0.strip():
                 reserve0, reserve1 = reserve1, reserve0
+            
+            if currency == 'usdc' or currency == 'usdt':
+                reserve1 = reserve1 * 1e12
 
             logger.info(f"""
                 Debugging reservers for {asset}-{currency}:
