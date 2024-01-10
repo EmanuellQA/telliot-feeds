@@ -128,6 +128,12 @@ class FetchFlexReporter(IntervalReporter):
             staked
         ) = staker_info
 
+        minimum_stake_amount, m_stake_amount_status = await self.oracle.read(func_name='minimumStakeAmount')
+        if minimum_stake_amount is None or not m_stake_amount_status.ok:
+            logger.error(f"Unable to read minimum stake amount: {m_stake_amount_status.error}")
+
+        minimum_stake_amount_eth = self.web3.fromWei(minimum_stake_amount, 'ether') if minimum_stake_amount else None
+
         logger.info(
             f"""
 
@@ -136,7 +142,7 @@ class FetchFlexReporter(IntervalReporter):
             start date formatted: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(staker_startdate))}
             desired stake:  {self.stake}
             amount staked:  {staker_balance / 1e18}
-            Minimum stake amount: {self.web3.fromWei((await self.oracle.read(func_name='minimumStakeAmount'))[0], 'ether')}
+            Minimum stake amount: {minimum_stake_amount_eth}
             locked balance: {locked_balance / 1e18}
             last report:    {last_report}
             last report formatted: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_report))}
