@@ -381,17 +381,10 @@ class IntervalReporter:
         latest_block = self.web3.eth.get_block('latest')
 
         base_fee = latest_block["baseFeePerGas"]
-        block_number = latest_block["number"]
 
-        try:
-            fee_history_data = self.web3.eth.fee_history(
-                block_count=FEE_HISTORY_BLOCKS, newest_block=block_number, reward_percentiles=[FEE_HISTORY_PERCENTILE]
-            )
-        except Exception as e:
-            block_number = 'latest'
-            fee_history_data = self.web3.eth.fee_history(
-                block_count=FEE_HISTORY_BLOCKS, newest_block=block_number, reward_percentiles=[FEE_HISTORY_PERCENTILE]
-            )
+        fee_history_data = self.web3.eth.fee_history(
+            block_count=FEE_HISTORY_BLOCKS, newest_block='latest', reward_percentiles=[FEE_HISTORY_PERCENTILE]
+        )
 
         fee_history = (
             fee_history_data
