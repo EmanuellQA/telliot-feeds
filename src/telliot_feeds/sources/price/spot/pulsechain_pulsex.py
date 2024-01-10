@@ -99,6 +99,7 @@ class PulsechainPulseXService(WebPriceService):
         kwargs["name"] = "LiquidLoans PulseX Price Service"
         kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "https://rpc.pulsechain.com")
         kwargs["timeout"] = 10.0
+        self.debugging_price = os.getenv("DEBUGGING_PRICE", 'False').lower() in ('true', '1', 't')
         super().__init__(**kwargs)
 
     async def get_price(self, asset: str, currency: str) -> OptionalDataPoint[float]:
@@ -159,61 +160,62 @@ class PulsechainPulseXService(WebPriceService):
                 LP contract address: {contract_addr}
             """)
 
-            r = requests.get(URLS[currency])
+            if self.debugging_price:
+                r = requests.get(URLS[currency])
 
-            pair = r.json()['pair']
-            priceUsd = Decimal(pair['priceUsd'])
+                pair = r.json()['pair']
+                priceUsd = Decimal(pair['priceUsd'])
 
-            logger.debug(f'{bcolors.yellow}')
-            logger.debug(pair)
-            logger.debug(f'{bcolors.endc}')
-
-            priceUsd_copy = priceUsd * Decimal(1e5)
-            price_copy = price * Decimal(1e5)
-            if math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2):
-                logger.debug(f"{bcolors.green}")
-                logger.debug(f"""
-                    For better visualization the prices are multiplied by 1e5
-                    priceUsd * 1e5: {priceUsd_copy}
-                    price * 1e5: {price_copy}
-
-                    Price CORRECT ({asset}-{currency}):
-                    Pair API priceUsd: {priceUsd_copy}
-                    Reported price rounded: {round(price_copy, 8)}
-                    math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
-                    
-                    Abs Diff:
-                    abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
-
-                    Percentual Diffs (for 1.5%):
-                    abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
-                    abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
-                    abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
-                    abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015: {abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015}
-                """)
+                logger.debug(f'{bcolors.yellow}')
+                logger.debug(pair)
                 logger.debug(f'{bcolors.endc}')
-            else:
-                logger.debug(f"{bcolors.red}")
-                logger.debug(f"""
-                    For better visualization the prices are multiplied by 1e5
-                    priceUsd * 1e5: {priceUsd_copy}
-                    price * 1e5: {price_copy}
 
-                    Price INCORRECT ({asset}-{currency}):
-                    Pair API priceUsd: {priceUsd_copy}
-                    Reported price rounded: {round(price_copy, 8)}
-                    math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
-                    
-                    Abs Diff:
-                    abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
+                priceUsd_copy = priceUsd * Decimal(1e5)
+                price_copy = price * Decimal(1e5)
+                if math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2):
+                    logger.debug(f"{bcolors.green}")
+                    logger.debug(f"""
+                        For better visualization the prices are multiplied by 1e5
+                        priceUsd * 1e5: {priceUsd_copy}
+                        price * 1e5: {price_copy}
 
-                    Percentual Diffs (for 1.5%):
-                    abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
-                    abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
-                    abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
-                    abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015: {abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015}
-                """)
-                logger.debug(f'{bcolors.endc}')
+                        Price CORRECT ({asset}-{currency}):
+                        Pair dexscreener API priceUsd: {priceUsd_copy}
+                        Reported price rounded: {round(price_copy, 8)}
+                        math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
+
+                        Abs Diff:
+                        abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
+
+                        Percentual Diffs (for 1.5%):
+                        abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
+                        abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
+                        abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
+                        abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015: {abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015}
+                    """)
+                    logger.debug(f'{bcolors.endc}')
+                else:
+                    logger.debug(f"{bcolors.red}")
+                    logger.debug(f"""
+                        For better visualization the prices are multiplied by 1e5
+                        priceUsd * 1e5: {priceUsd_copy}
+                        price * 1e5: {price_copy}
+
+                        Price INCORRECT ({asset}-{currency}):
+                        Pair dexscreener API priceUsd: {priceUsd_copy}
+                        Reported price rounded: {round(price_copy, 8)}
+                        math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
+
+                        Abs Diff:
+                        abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
+
+                        Percentual Diffs (for 1.5%):
+                        abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
+                        abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
+                        abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
+                        abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015: {abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015}
+                    """)
+                    logger.debug(f'{bcolors.endc}')
             
             return float(price), timestamp, float(tvl)
         except Exception as e:
