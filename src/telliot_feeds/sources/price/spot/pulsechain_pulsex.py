@@ -70,7 +70,7 @@ def get_amount_out(amount_in, reserve_in, reserve_out):
     """
     assert amount_in > 0
     assert reserve_in > 0 and reserve_out > 0
-    amount_in_with_fee = amount_in*997
+    amount_in_with_fee = amount_in*1000
     numerator = amount_in_with_fee*reserve_out
     denominator = reserve_in*1000 + amount_in_with_fee
     return float(numerator/denominator)
