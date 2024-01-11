@@ -12,6 +12,23 @@ from telliot_feeds.utils.log import get_logger
 
 from web3 import Web3
 import os
+import requests
+import math
+from decimal import Decimal
+
+URLS = {
+    'usdt': 'https://api.dexscreener.com/latest/dex/pairs/pulsechain/0x322Df7921F28F1146Cdf62aFdaC0D6bC0Ab80711',
+    'usdc': 'https://api.dexscreener.com/latest/dex/pairs/pulsechain/0x6753560538ECa67617A9Ce605178F788bE7E524E',
+    'dai': 'https://api.dexscreener.com/latest/dex/pairs/pulsechain/0xe56043671df55de5cdf8459710433c10324de0ae'
+    
+}
+
+class bcolors:
+    green = '\033[92m'
+    red = '\033[91m'
+    yellow = '\033[93m'
+    endc = '\033[0m'
+
 
 load_dotenv()
 
@@ -70,10 +87,10 @@ def get_amount_out(amount_in, reserve_in, reserve_out):
     """
     assert amount_in > 0
     assert reserve_in > 0 and reserve_out > 0
-    amount_in_with_fee = amount_in*997
+    amount_in_with_fee = amount_in*1000
     numerator = amount_in_with_fee*reserve_out
     denominator = reserve_in*1000 + amount_in_with_fee
-    return int(numerator/denominator)
+    return float(numerator/denominator)
 
 class PulsechainPulseXService(WebPriceService):
     """Pulsechain PulseX Price Service for PLS/USD feed"""
@@ -82,6 +99,7 @@ class PulsechainPulseXService(WebPriceService):
         kwargs["name"] = "LiquidLoans PulseX Price Service"
         kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "https://rpc.pulsechain.com")
         kwargs["timeout"] = 10.0
+        self.debugging_price = os.getenv("DEBUGGING_PRICE", 'False').lower() in ('true', '1', 't')
         super().__init__(**kwargs)
 
     async def get_price(self, asset: str, currency: str) -> OptionalDataPoint[float]:
@@ -113,7 +131,16 @@ class PulsechainPulseXService(WebPriceService):
             if "pls" not in token0.strip():
                 reserve0, reserve1 = reserve1, reserve0
 
+            logger.info(f"""
+                Debugging reservers for {asset}-{currency}:
+                reserve0: {reserve0}
+                reserve1: {reserve1}
+            """)
+
             val = get_amount_out(1e18, reserve0, reserve1)
+
+            if currency == 'usdc' or currency == 'usdt':
+                reserve1 = reserve1 * 1e12
 
             vl0 = ((1e18 * reserve1) / (reserve0 + 1e18)) * reserve0 #value locked token0 without fees
             vl1 = ((1e18 * reserve0) / (reserve1 + 1e18)) * reserve1 #value locked token0 without fees
@@ -124,10 +151,73 @@ class PulsechainPulseXService(WebPriceService):
             return None, None
 
         try:
-            price = float(val / 1e18)
+            price = w3.fromWei(val, 'ether')
             if currency == 'usdc' or currency == 'usdt':
-                price = price * 1e12 #scale usdc 
-            return price, timestamp, float(tvl)
+                price = price * Decimal(1e12) #scale usdc 
+
+            logger.info(f"""
+                LP price for {asset}-{currency}: {price}
+                LP contract address: {contract_addr}
+            """)
+
+            if self.debugging_price:
+                r = requests.get(URLS[currency])
+
+                pair = r.json()['pair']
+                priceUsd = Decimal(pair['priceUsd'])
+
+                logger.debug(f'{bcolors.yellow}')
+                logger.debug(pair)
+                logger.debug(f'{bcolors.endc}')
+
+                priceUsd_copy = priceUsd * Decimal(1e5)
+                price_copy = price * Decimal(1e5)
+                if math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2):
+                    logger.debug(f"{bcolors.green}")
+                    logger.debug(f"""
+                        For better visualization the prices are multiplied by 1e5
+                        priceUsd * 1e5: {priceUsd_copy}
+                        price * 1e5: {price_copy}
+
+                        Price CORRECT ({asset}-{currency}):
+                        Pair dexscreener API priceUsd: {priceUsd_copy}
+                        Reported price rounded: {round(price_copy, 8)}
+                        math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
+
+                        Abs Diff:
+                        abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
+
+                        Percentual Diffs (for 1.5%):
+                        abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
+                        abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
+                        abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
+                        abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015: {abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015}
+                    """)
+                    logger.debug(f'{bcolors.endc}')
+                else:
+                    logger.debug(f"{bcolors.red}")
+                    logger.debug(f"""
+                        For better visualization the prices are multiplied by 1e5
+                        priceUsd * 1e5: {priceUsd_copy}
+                        price * 1e5: {price_copy}
+
+                        Price INCORRECT ({asset}-{currency}):
+                        Pair dexscreener API priceUsd: {priceUsd_copy}
+                        Reported price rounded: {round(price_copy, 8)}
+                        math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
+
+                        Abs Diff:
+                        abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
+
+                        Percentual Diffs (for 1.5%):
+                        abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
+                        abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
+                        abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
+                        abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015: {abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015}
+                    """)
+                    logger.debug(f'{bcolors.endc}')
+            
+            return float(price), timestamp, float(tvl)
         except Exception as e:
             msg = f"Error parsing Pulsechain Sec Oracle response: KeyError: {e}"
             logger.critical(msg)
