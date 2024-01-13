@@ -381,12 +381,13 @@ class IntervalReporter:
         latest_block = self.web3.eth.get_block('latest')
 
         base_fee = latest_block["baseFeePerGas"]
-        block_number = latest_block["number"]
+
+        fee_history_data = self.web3.eth.fee_history(
+            block_count=FEE_HISTORY_BLOCKS, newest_block='latest', reward_percentiles=[FEE_HISTORY_PERCENTILE]
+        )
 
         fee_history = (
-            self.web3.eth.fee_history(
-                block_count=FEE_HISTORY_BLOCKS, newest_block=block_number, reward_percentiles=[FEE_HISTORY_PERCENTILE]
-            )
+            fee_history_data
             if base_fee >= PRIORITY_FEE_ESTIMATION_TRIGGER
             else None
         )
