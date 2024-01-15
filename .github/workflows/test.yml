@@ -46,5 +46,9 @@ jobs:
           cd ../telliot-core && pip install --no-cache-dir -r requirements-dev.txt && pip install -e .   
           npm install -g ganache
 
+      - name: Start Test Dependencies
+        run: |
+          ganache-cli --detach
+
       - name: Run tests
         run: pytest
