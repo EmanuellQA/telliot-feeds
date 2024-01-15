@@ -52,7 +52,7 @@ jobs:
 
       - name: Initialize telliot
         run: |
-          telliot init
+          telliot config init
           echo "TELLIOT ENDPOINTS DEBUGGING"
           cat ~/telliot/endpoints.yaml
           echo '
