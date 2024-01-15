@@ -21,12 +21,21 @@ from multicall.constants import MULTICALL2_ADDRESSES
 from multicall.constants import Network
 from telliot_core.apps.core import TelliotCore
 from telliot_core.apps.telliot_config import TelliotConfig
+from web3 import Web3
 
 from telliot_feeds.datasource import DataSource
 from telliot_feeds.dtypes.datapoint import datetime_now_utc
 from telliot_feeds.dtypes.datapoint import OptionalDataPoint
 from telliot_feeds.reporters.fetch_flex import FetchFlexReporter
 
+def get_gas_price():
+    w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
+    return w3.eth.gas_price
+
+gas_price = get_gas_price()
+multiplier = 1.401
+gas_price_with_multiplier = gas_price * multiplier
+# it handles the error: "ValueError: max fee per gas less than block base fee"
 
 @pytest.fixture(scope="module", autouse=True)
 def shared_setup(module_isolation):
@@ -161,13 +170,19 @@ def goerli_test_cfg(scope="function", autouse=True):
 @pytest.fixture(scope="function", autouse=True)
 def mock_token_contract():
     """mock token to use for staking"""
-    return accounts[0].deploy(StakingToken)
+    return accounts[0].deploy(
+        contract=StakingToken,
+        gas_price=gas_price_with_multiplier
+    )
 
 
 @pytest.fixture(scope="function", autouse=True)
 def mock_flex_contract(mock_token_contract):
     """mock oracle(FetchFlex) contract to stake in"""
-    return accounts[0].deploy(FetchFlex, mock_token_contract.address, accounts[0], 10e18, 60)
+    # return accounts[0].deploy(FetchFlex, mock_token_contract.address, accounts[0], 10e18, 60)
+    return accounts[0].deploy(
+        FetchFlex, mock_token_contract.address, accounts[0], 10e18, 60, gas_price=gas_price_with_multiplier
+    )
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -180,6 +195,7 @@ def mock_autopay_contract(mock_flex_contract, mock_token_contract, query_data_st
         query_data_storage_contract.address,
         # accounts[0],
         20,
+        gas_price=gas_price_with_multiplier,
     )
 
 
@@ -187,6 +203,7 @@ def mock_autopay_contract(mock_flex_contract, mock_token_contract, query_data_st
 def query_data_storage_contract():
     return accounts[0].deploy(
         QueryDataStorage,
+        gas_price=gas_price_with_multiplier,
     )
 
 
@@ -203,7 +220,7 @@ def fetchx_master_mock_contract():
 @pytest.fixture(autouse=True)
 def multicall_contract():
     #  deploy multicall contract to brownie chain and add chain id to multicall module
-    addy = brownie_multicall.deploy({"from": accounts[0]})
+    addy = brownie_multicall.deploy({"from": accounts[0], 'gas_price': 5000000000000000})
     Network.Brownie = 1337
     # add multicall contract address to multicall module
     MULTICALL2_ADDRESSES[Network.Brownie] = addy.address
