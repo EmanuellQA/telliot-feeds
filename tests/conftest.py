@@ -220,7 +220,7 @@ def fetchx_master_mock_contract():
 @pytest.fixture(autouse=True)
 def multicall_contract():
     #  deploy multicall contract to brownie chain and add chain id to multicall module
-    addy = brownie_multicall.deploy({"from": accounts[0], 'gas_price': 5000000000000000})
+    addy = brownie_multicall.deploy({"from": accounts[0], 'gas_price': gas_price_with_multiplier})
     Network.Brownie = 1337
     # add multicall contract address to multicall module
     MULTICALL2_ADDRESSES[Network.Brownie] = addy.address
