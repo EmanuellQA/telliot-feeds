@@ -82,7 +82,7 @@ class Contract:
         return self._bytes_to_decimal(current_value)
 
 def _get_new_price(price: Decimal) -> Decimal:
-    return (price * Decimal('1.05')).quantize(Decimal('1e-18'))
+    return (price * Decimal('1')).quantize(Decimal('1e-18'))
 
 def get_mock_price_path() -> Path:
     current_dir = Path(__file__).parent.absolute()
@@ -272,9 +272,13 @@ def main():
 
     mock_price_env = configure_mock_price_api_env('0.000062')
     mock_price_ps = initialize_mock_price_api()
+
+    # first report to avoid "transaction reverted" error (when using ganache, see mock-deployment.sh in monorepo/e2e_tests folder)
+    # todo update mock to use anvil -> no need to submit a report before
+    prev_env_config = _configure_telliot_env_with_mock_price()
+    report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
     
     try:
-        prev_env_config = _configure_telliot_env_with_mock_price()
         report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
         _configure_telliot_env_with_mock_price(prev_env_config)
     except Exception as e:
@@ -298,6 +302,7 @@ def main():
     mock_price_ps = initialize_mock_price_api()
     logger.info(f"MOCK_PRICE_API initialized with price {new_price}")
 
+    # todo, stake * 10 is not enough, needs to set REPORT_LOCK_TIME=1 to avoid lock time error
     prev_env_config = _configure_telliot_env_with_mock_price()
     submit_report_with_telliot(account_name=account_name, stake_amount=str(int(stake_amount)*10))
     _configure_telliot_env_with_mock_price(prev_env_config)
