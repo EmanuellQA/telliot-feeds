@@ -69,7 +69,8 @@ jobs:
             provider: Pulsechain
             url: http://127.0.0.1:8545
             explorer: http://127.0.0.1:8545' > ~/telliot/endpoints.yaml
-          echo "$existing_content" > ~/telliot/endpoints.yaml
 
       - name: Run tests
-        run: pytest
+        run: |
+          pytest
+          echo "$existing_content" > ~/telliot/endpoints.yaml
