@@ -53,6 +53,23 @@ jobs:
       - name: Initialize telliot
         run: |
           telliot config init
+          existing_content=$(cat ~/telliot/endpoints.yaml)
+          echo '
+          type: EndpointList
+          endpoints:
+          - type: RPCEndpoint
+            chain_id: 943
+            network: Pulsechain Testnet
+            provider: Pulsechain
+            url: http://127.0.0.1:8545
+            explorer: http://127.0.0.1:8545
+          - type: RPCEndpoint
+            chain_id: 369
+            network: Pulsechain Mainnet
+            provider: Pulsechain
+            url: http://127.0.0.1:8545
+            explorer: http://127.0.0.1:8545' > ~/telliot/endpoints.yaml
+          echo "$existing_content" > ~/telliot/endpoints.yaml
 
       - name: Run tests
         run: pytest
