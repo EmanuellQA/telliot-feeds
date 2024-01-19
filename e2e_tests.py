@@ -193,7 +193,7 @@ def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
         logger.info("Submit report with telliot OK")
 
         report_log = report_process.before.decode('utf-8')
-        regexp = r'View reported data:\s+\n(http[s]?://[^/]+/tx/\w+)'
+        regexp = r'View reported data:\s+\n(http[s]?://[^/]+[\/]?/tx/\w+)'
 
         tx_hash = re.search(
             regexp,
