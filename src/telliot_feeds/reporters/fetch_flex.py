@@ -60,7 +60,8 @@ class FetchFlexReporter(IntervalReporter):
         continue_reporting_on_dispute: bool = False,
         use_estimate_fee: bool = False,
         use_gas_api: bool = False,
-        force_nonce: Optional[int] = None
+        force_nonce: Optional[int] = None,
+        tx_timeout: int = 120,
     ) -> None:
 
         self.endpoint = endpoint
@@ -91,6 +92,7 @@ class FetchFlexReporter(IntervalReporter):
         self.use_estimate_fee: bool = use_estimate_fee
         self.use_gas_api: bool = use_gas_api        
         self.force_nonce: Optional[int] = force_nonce
+        self.tx_timeout: int = tx_timeout
 
         self.gas_info: dict[str, Union[float, int]] = {}
         logger.info(f"Reporting with account: {self.acct_addr}")

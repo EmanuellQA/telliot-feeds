@@ -291,6 +291,15 @@ def reporter() -> None:
     type=int,
     default=None,
 )
+@click.option(
+    "--tx-timeout",
+    "-tx-timeout",
+    "tx_timeout",
+    help="Timeout for transaction to be mined",
+    nargs=1,
+    type=int,
+    default=120,
+)
 @click.option("--rng-auto/--rng-auto-off", default=False)
 @click.option("--submit-once/--submit-continuous", default=False)
 @click.option("-pwd", "--password", type=str)
@@ -331,6 +340,7 @@ async def report(
     use_estimate_fee: bool,
     use_gas_api: bool,
     force_nonce: Optional[int],
+    tx_timeout: int,
     continue_reporting_on_dispute: bool
 ) -> None:
     """Report values to Fetch oracle"""
@@ -503,6 +513,7 @@ async def report(
                 "use_estimate_fee": use_estimate_fee,
                 "use_gas_api": use_gas_api,
                 "force_nonce": force_nonce,
+                "tx_timeout": tx_timeout,
             }) # type: ignore
 
         if submit_once:
