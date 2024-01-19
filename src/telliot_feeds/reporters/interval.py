@@ -58,7 +58,8 @@ class IntervalReporter:
         min_native_token_balance: int = 10**18,
         use_estimate_fee: bool = False,
         use_gas_api: bool = False,
-        force_nonce: Optional[int] = None
+        force_nonce: Optional[int] = None,
+        tx_timeout: int = 120,
     ) -> None:
 
         self.endpoint = endpoint
@@ -84,6 +85,7 @@ class IntervalReporter:
         self.use_estimate_fee = use_estimate_fee
         self.use_gas_api = use_gas_api
         self.force_nonce: Optional[int] = force_nonce
+        self.tx_timeout = tx_timeout
 
         self.gas_info: dict[str, Union[float, int]] = {}
 
@@ -629,7 +631,7 @@ class IntervalReporter:
 
         try:
             # Confirm transaction
-            tx_receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
+            tx_receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash, timeout=self.tx_timeout)
 
             tx_url = f"{self.endpoint.explorer}/tx/{tx_hash.hex()}"
 
