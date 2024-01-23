@@ -147,7 +147,8 @@ async def test_poloniex_get_trades():
     assert isfloat(trades[0]["rate"])
     # print("# trades in six hour window:", len(trades))
 
-
+# skip, cryptowatch api is disabled, "https://api.cryptowat.ch/ -> CW_API_Disabled 410"
+@pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_cryptowatch_get_price():
     """Retrieve single historical price close to given timestamp."""
@@ -159,7 +160,8 @@ async def test_cryptowatch_get_price():
 
     print("CryptoWatch BTC/USD last candle price:", v)
 
-
+# skip, cryptowatch api is disabled, "https://api.cryptowat.ch/ -> CW_API_Disabled 410"
+@pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_cryptowatch_get_candles():
     """Retrieve all price data given a timestamp and surrounding time period."""

@@ -1,0 +1,76 @@
+name: 'Test'
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - fix-tests
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 'Tests'
+    runs-on: ubuntu-latest
+    env:
+      working-directory: ${{ github.workspace }}
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.working-directory }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref_name }}
+          submodules: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+
+      - name: Install Dependencies
+        run: |
+          mv ./telliot-core ../
+          pip install --no-cache-dir -r requirements.txt && pip install -e .
+          cd ../telliot-core && pip install --no-cache-dir -r requirements-dev.txt && pip install -e .   
+          npm install -g ganache
+
+      - name: Start Test Dependencies
+        run: |
+          ganache-cli --detach
+
+      - name: Initialize telliot
+        run: |
+          telliot config init
+          existing_content=$(cat ~/telliot/endpoints.yaml)
+          echo '
+          type: EndpointList
+          endpoints:
+          - type: RPCEndpoint
+            chain_id: 943
+            network: Pulsechain Testnet
+            provider: Pulsechain
+            url: http://127.0.0.1:8545
+            explorer: http://127.0.0.1:8545
+          - type: RPCEndpoint
+            chain_id: 369
+            network: Pulsechain Mainnet
+            provider: Pulsechain
+            url: http://127.0.0.1:8545
+            explorer: http://127.0.0.1:8545' > ~/telliot/endpoints.yaml
+
+      - name: Run tests
+        run: |
+          pytest
+          echo "$existing_content" > ~/telliot/endpoints.yaml

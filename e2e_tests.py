@@ -193,8 +193,19 @@ def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
         logger.info("Submit report with telliot OK")
 
         report_log = report_process.before.decode('utf-8')
-        tx_hashes = re.findall(r'/tx/(\w*)', report_log)
-        report_hash = tx_hashes[-1]
+        regexp = r'View reported data:\s+\n(http[s]?://[^/]+[\/]?/tx/\w+)'
+
+        tx_hash = re.search(
+            regexp,
+            report_log
+        )
+
+        if not tx_hash:
+            logger.warning("No 'View reported data:' found in telliot report log")
+            return None
+
+        report_hash = re.search(r'^.*/tx/(\w+)$', tx_hash.group(1)).group(1)
+        logger.info(f"Report hash: {report_hash}")
     except Exception as e:
         logger.error("Submit report with telliot error:")
         logger.error(e)
@@ -276,10 +287,10 @@ def main():
     # first report to avoid "transaction reverted" error (when using ganache, see mock-deployment.sh in monorepo/e2e_tests folder)
     # todo update mock to use anvil -> no need to submit a report before
     prev_env_config = _configure_telliot_env_with_mock_price()
-    report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
+    report_hash1 = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
     
     try:
-        report_hash = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
+        report_hash2 = submit_report_with_telliot(account_name=account_name, stake_amount=stake_amount)
         _configure_telliot_env_with_mock_price(prev_env_config)
     except Exception as e:
         logger.error("Submit report with telliot error:")
@@ -304,7 +315,7 @@ def main():
 
     # todo, stake * 10 is not enough, needs to set REPORT_LOCK_TIME=1 to avoid lock time error
     prev_env_config = _configure_telliot_env_with_mock_price()
-    submit_report_with_telliot(account_name=account_name, stake_amount=str(int(stake_amount)*10))
+    report_hash3 = submit_report_with_telliot(account_name=account_name, stake_amount=str(int(stake_amount)*10))
     _configure_telliot_env_with_mock_price(prev_env_config)
 
     configure_mock_price_api_env(0, mock_price_env)
@@ -314,6 +325,8 @@ def main():
     try:
         assert abs(price - new_price) <= Decimal('1e-2')
         logger.info(f'OK - Submit price test passed (considering 2 decimals). Difference = {abs(price - new_price)}')
+
+        report_hash = report_hash3 if report_hash3 else report_hash2 if report_hash2 else report_hash1
         write_price_to_file(price, report_hash)
     except AssertionError as e:
         logger.error(f'FAIL - Submit price test failed. Difference = {abs(price - new_price)}')
