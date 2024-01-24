@@ -1,10 +1,15 @@
+import os
 import logging
+from logging.handlers import RotatingFileHandler
 import pathlib
 import sys
 from pathlib import Path
 
 from telliot_core.apps.telliot_config import TelliotConfig
 from telliot_core.utils.home import default_homedir
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 cfg = TelliotConfig()
@@ -51,6 +56,11 @@ def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(stream)
+    activate_file_logger = os.getenv("ACTIVATE_TELLIOT_LOG_FILE", 'False').lower() in ('true', '1', 't')
+    if activate_file_logger:
+        fh = RotatingFileHandler("telliot_feeds.log", maxBytes=10000000)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
     logger.addFilter(DuplicateFilter())
 
     return logger
