@@ -3,6 +3,7 @@ Example of a subclassed Reporter.
 """
 import asyncio
 import time
+import threading
 from typing import Any
 from typing import Optional
 from typing import Tuple
@@ -30,7 +31,8 @@ from telliot_feeds.utils.reporter_utils import has_native_token_funds
 from telliot_feeds.utils.reporter_utils import is_online
 from telliot_feeds.utils.reporter_utils import fetch_suggested_report
 from telliot_feeds.utils.reporter_utils import tkn_symbol
-
+from telliot_feeds.reporters.ListenLPContract import ListenLPContract
+from telliot_feeds.reporters.FlexV3 import FlexV3
 
 logger = get_logger(__name__)
 
@@ -653,16 +655,41 @@ class IntervalReporter:
     async def report(self, report_count: Optional[int] = None) -> None:
         """Submit values to Fetch oracles on an interval."""
 
-        while report_count is None or report_count > 0:
-            online = await self.is_online()
-            if online:
-                if self.has_native_token():
-                    _, _ = await self.report_once()
-            else:
-                logger.warning("Unable to connect to the internet!")
+        some_flag = True
 
-            logger.info(f"Sleeping for {self.wait_period} seconds")
-            await asyncio.sleep(self.wait_period)
+        if some_flag:
+            while True:
+                flexV3 = FlexV3()
+                listen_lp_contract = ListenLPContract()
 
-            if report_count is not None:
-                report_count -= 1
+                threading_some_event = threading.Event()
+                listen_lp_contract.listen_sync_events(threading_some_event)
+                # 1 initialize background thread to listen for LP events
+
+                logger.info("Waiting for LP sync event...")
+                
+                threading_some_event.wait()
+
+                logger.info("LP Sync event received!")
+                # 2 send a LL report when an event is received
+                flexV3.callSubmitValueLL()
+                
+                threading_some_event.clear()
+
+                # todo check if a report was not submitted within an hour then send a report
+                # triggers 3. b
+                # "When the price has not been submitted for more than 1 hour"
+        else:
+            while report_count is None or report_count > 0:
+                online = await self.is_online()
+                if online:
+                    if self.has_native_token():
+                        _, _ = await self.report_once()
+                else:
+                    logger.warning("Unable to connect to the internet!")
+
+                logger.info(f"Sleeping for {self.wait_period} seconds")
+                await asyncio.sleep(self.wait_period)
+
+                if report_count is not None:
+                    report_count -= 1
