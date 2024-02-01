@@ -655,30 +655,41 @@ class IntervalReporter:
     async def report(self, report_count: Optional[int] = None) -> None:
         """Submit values to Fetch oracles on an interval."""
 
-        some_flag = True
+        datafeed = await self.fetch_datafeed()
+        asset = datafeed.query.asset
 
-        if some_flag:
+        if asset == "validated-feed":
+            logger.info("Using FetchFlexV3 to submit values")
+
+            current_report_time = { "timestamp": time.time() }
+            sync_event = threading.Event()
+            time_limit_event = threading.Event()
+
+            flexV3 = FlexV3(datafeed, self.endpoint, self.account)
+            listen_lp_contract = ListenLPContract(
+                sync_event=sync_event,
+                time_limit_event=time_limit_event,
+                current_report_time=current_report_time,
+                fetch_new_datapoint=flexV3.fetch_new_datapoint
+            )
+            await listen_lp_contract.initialize_price()
+
+            listen_lp_contract.listen_sync_events()
+
+            sync_event.set()
+            logger.info("Triggered first LP sync event report")
             while True:
-                flexV3 = FlexV3()
-                listen_lp_contract = ListenLPContract()
-
-                threading_some_event = threading.Event()
-                listen_lp_contract.listen_sync_events(threading_some_event)
-                # 1 initialize background thread to listen for LP events
-
-                logger.info("Waiting for LP sync event...")
+                logger.info("Waiting for LP sync event report trigger...")
+                sync_event.wait()
                 
-                threading_some_event.wait()
+                if time_limit_event.is_set():
+                    logger.info("Time limit reached! Submitting price")
+                    time_limit_event.clear()
 
-                logger.info("LP Sync event received!")
-                # 2 send a LL report when an event is received
-                flexV3.callSubmitValueLL()
-                
-                threading_some_event.clear()
-
-                # todo check if a report was not submitted within an hour then send a report
-                # triggers 3. b
-                # "When the price has not been submitted for more than 1 hour"
+                logger.info("Report triggered")
+                await flexV3.callSubmitValue()
+                current_report_time["timestamp"] = time.time()
+                sync_event.clear()
         else:
             while report_count is None or report_count > 0:
                 online = await self.is_online()
