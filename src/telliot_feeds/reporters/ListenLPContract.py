@@ -130,23 +130,26 @@ class ListenLPContract(Contract):
 
     async def _log_loop(self, dai_event_filter, usdc_event_filter, usdt_event_filter, polling_interval=8):
         while True:
-            has_sync_event = False
-            for event in dai_event_filter.get_new_entries():
-                has_sync_event = True
-                await self._handle_event(event)
+            try:
+                has_sync_event = False
+                for event in dai_event_filter.get_new_entries():
+                    has_sync_event = True
+                    await self._handle_event(event)
 
-            if has_sync_event: continue
-            for event in usdt_event_filter.get_new_entries():
-                has_sync_event = True
-                await self._handle_event(event)
+                if has_sync_event: continue
+                for event in usdt_event_filter.get_new_entries():
+                    has_sync_event = True
+                    await self._handle_event(event)
 
-            if has_sync_event: continue
-            for event in usdc_event_filter.get_new_entries():
-                has_sync_event = True
-                await self._handle_event(event)
+                if has_sync_event: continue
+                for event in usdc_event_filter.get_new_entries():
+                    has_sync_event = True
+                    await self._handle_event(event)
 
-            await self._check_time_limit()    
-            time.sleep(polling_interval)
+                await self._check_time_limit()    
+                time.sleep(polling_interval)
+            except Exception as e:
+                logger.error(f"Error in log loop: {e}")
 
     def initialize_log_loop_thread(self, dai_event_filter, usdc_event_filter, usdt_event_filter):
         loop = asyncio.new_event_loop()
