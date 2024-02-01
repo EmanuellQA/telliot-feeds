@@ -94,11 +94,15 @@ class ListenLPContract(Contract):
         percentage_change = ((value - previous_value) / previous_value) * 100
         return abs(percentage_change)
 
-    def _check_time_limit(self):
-        if time.time() - self.current_report_time['timestamp'] > self.time_limit:
-            logger.info("Time limit reached, setting time limit event")
-            self.time_limit_event.set()
-            self.sync_event.set()
+    async def _check_time_limit(self):
+        time_elapsed = time.time() - self.current_report_time['timestamp']
+        if time_elapsed > self.time_limit:
+            if not self.time_limit_event.is_set():
+                logger.info(f"Time limit reached, setting time limit event (time elapsed={time_elapsed:.2f}, time limit={self.time_limit})")
+                value, _ = await self.fetch_new_datapoint()
+                self.previous_value = value
+                self.time_limit_event.set()
+                self.sync_event.set()
 
     def _address_to_pair_name(self, lp_address: str):
         if lp_address == self.DAI_ADDRESS: return "WPLS/DAI"
@@ -118,9 +122,9 @@ class ListenLPContract(Contract):
         percentage_change = self._get_percentage_change(self.previous_value, value)
         
         if percentage_change >= self.percentage_change_threshold:
-            logger.info("Trigerring report - Percentage change threshold reached")
-            self.sync_event.set()
+            logger.info(f"Trigerring report - Percentage change threshold reached ({percentage_change:.2f}%)")
             self.previous_value = value
+            self.sync_event.set()
         else:
             logger.info(f"Not triggering report - Percentage change threshold not reached ({percentage_change:.2f}%)")
 
@@ -140,9 +144,9 @@ class ListenLPContract(Contract):
             for event in usdc_event_filter.get_new_entries():
                 has_sync_event = True
                 await self._handle_event(event)
-                
+
+            await self._check_time_limit()    
             time.sleep(polling_interval)
-            self._check_time_limit()
 
     def initialize_log_loop_thread(self, dai_event_filter, usdc_event_filter, usdt_event_filter):
         loop = asyncio.new_event_loop()

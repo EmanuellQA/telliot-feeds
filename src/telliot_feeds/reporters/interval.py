@@ -665,7 +665,7 @@ class IntervalReporter:
             sync_event = threading.Event()
             time_limit_event = threading.Event()
 
-            flexV3 = FlexV3(datafeed, self.endpoint, self.account)
+            flexV3 = FlexV3(datafeed, self.endpoint, self.account, self.chain_id, self.get_fees)
             listen_lp_contract = ListenLPContract(
                 sync_event=sync_event,
                 time_limit_event=time_limit_event,
@@ -684,12 +684,12 @@ class IntervalReporter:
                 
                 if time_limit_event.is_set():
                     logger.info("Time limit reached! Submitting price")
-                    time_limit_event.clear()
 
                 logger.info("Report triggered")
                 await flexV3.callSubmitValue()
                 current_report_time["timestamp"] = time.time()
                 sync_event.clear()
+                time_limit_event.clear()
         else:
             while report_count is None or report_count > 0:
                 online = await self.is_online()

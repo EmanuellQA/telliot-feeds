@@ -1,4 +1,5 @@
 import os
+from collections.abc import Callable
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -86,11 +87,20 @@ class Contract:
         return self.w3.eth.contract(address=self.ADDRESS, abi=self.ABI)
 
 class FlexV3(Contract):
-    def __init__(self, datafeed: DataFeed, endpoint: RPCEndpoint, account: ChainedAccount):
+    def __init__(
+      self,
+      datafeed: DataFeed,
+      endpoint: RPCEndpoint,
+      account: ChainedAccount,
+      chain_id: int, 
+      get_fees: Callable
+    ):
         super().__init__(endpoint.url)
         self.datafeed = datafeed
         self.endpoint = endpoint
         self.account = account
+        self.chain_id = chain_id
+        self.get_fees = get_fees
         self.flexv3_contract = self._get_contract()
 
     async def fetch_new_datapoint(self):
@@ -130,11 +140,15 @@ class FlexV3(Contract):
         account_address = Web3.toChecksumAddress(self.account.address)
         logger.info("Estimating gas limit")
         gas_limit = transaction.estimateGas({"from": account_address})
+
+        priority_fee, max_fee = self.get_fees()
         tx_dict = {
             "from": account_address,
             "nonce": self.w3.eth.get_transaction_count(account_address),
             "gas": gas_limit,
-            "gasPrice": self.w3.toWei(self.fetch_gas_price(), "gwei"),
+            "maxFeePerGas": self.w3.toWei(max_fee, "gwei"),
+            "maxPriorityFeePerGas": self.w3.toWei(priority_fee, "gwei"),
+            "chainId": self.chain_id,
         }
         built_tx = transaction.buildTransaction(tx_dict)
 
@@ -142,8 +156,10 @@ class FlexV3(Contract):
             Transaction info:
             from: {built_tx['from']}
             nonce: {built_tx['nonce']}
-            gas: {built_tx['gas']}
-            gasPrice: {built_tx['gasPrice']}
+            gas_limit: {built_tx['gas']}
+            maxFeePerGas: {built_tx['maxFeePerGas']}
+            maxPriorityFeePerGas: {built_tx['maxPriorityFeePerGas']}
+            chainId: {built_tx['chainId']}
         """)
 
         lazy_unlock_account(self.account)
