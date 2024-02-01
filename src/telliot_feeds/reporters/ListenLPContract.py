@@ -52,14 +52,17 @@ class Contract:
     }
     ]
     """
-    ADDRESS = "0xE56043671df55dE5CDf8459710433C10324DE0aE"
+    DAI_ADDRESS = "0xE56043671df55dE5CDf8459710433C10324DE0aE"
+    USDT_ADDRESS = "0x322Df7921F28F1146Cdf62aFdaC0D6bC0Ab80711"
+    USDC_ADDRESS = "0x6753560538ECa67617A9Ce605178F788bE7E524E"
 
-    def __init__(self):
-        self.provider_url = os.getenv('LP_PULSE_NETWORK_URL', 'https://rpc.pulsechain.com')
+    def __init__(self, endpoint_url: str):
+        self.provider_url = endpoint_url
         self.w3 = Web3(Web3.HTTPProvider(self.provider_url))
 
-    def _get_contract(self):
-        return self.w3.eth.contract(address=self.ADDRESS, abi=self.ABI)
+    def _get_contract(self, LP_pair: str):
+        address = getattr(self, f"{LP_pair}_ADDRESS")
+        return self.w3.eth.contract(address=address, abi=self.ABI)
 
 class ListenLPContract(Contract):
     def __init__(
@@ -71,8 +74,10 @@ class ListenLPContract(Contract):
             time_limit:int=3600,
             percentage_change_threshold:float=0.5
     ):
-        super().__init__()
-        self.lp_contract = self._get_contract()
+        super().__init__(os.getenv('LP_PULSE_NETWORK_URL', 'https://rpc.pulsechain.com'))
+        self.dai_lp_contract = self._get_contract('DAI')
+        self.usdc_lp_contract = self._get_contract('USDC')
+        self.usdt_lp_contract = self._get_contract('USDT')
         self.sync_event = sync_event
         self.time_limit_event = time_limit_event
         self.current_report_time = current_report_time
@@ -95,35 +100,64 @@ class ListenLPContract(Contract):
             self.time_limit_event.set()
             self.sync_event.set()
 
-    async def _log_loop(self, event_filter, polling_interval=8):
-        while True:
-            for event in event_filter.get_new_entries():
-                logger.info(f"""
-                    LP Sync event received:
-                    reserve0: {event['args']['reserve0']}
-                    reserve1: {event['args']['reserve1']}
-                """)
+    def _address_to_pair_name(self, lp_address: str):
+        if lp_address == self.DAI_ADDRESS: return "WPLS/DAI"
+        if lp_address == self.USDC_ADDRESS: return "USDC/WPLS"
+        if lp_address == self.USDT_ADDRESS: return "USDT/WPLS"
 
-                value, _ = await self.fetch_new_datapoint()
-                percentage_change = self._get_percentage_change(self.previous_value, value)
+    async def _handle_event(self, event):
+        logger.info(f"""
+            LP Sync event received:
+            address: {event['address']}
+            Pair: {self._address_to_pair_name(event['address'])}
+            reserve0: {event['args']['reserve0']}
+            reserve1: {event['args']['reserve1']}
+        """)
+
+        value, _ = await self.fetch_new_datapoint()
+        percentage_change = self._get_percentage_change(self.previous_value, value)
+        
+        if percentage_change >= self.percentage_change_threshold:
+            logger.info("Trigerring report - Percentage change threshold reached")
+            self.sync_event.set()
+            self.previous_value = value
+        else:
+            logger.info(f"Not triggering report - Percentage change threshold not reached ({percentage_change:.2f}%)")
+
+    async def _log_loop(self, dai_event_filter, usdc_event_filter, usdt_event_filter, polling_interval=8):
+        while True:
+            has_sync_event = False
+            for event in dai_event_filter.get_new_entries():
+                has_sync_event = True
+                await self._handle_event(event)
+
+            if has_sync_event: continue
+            for event in usdt_event_filter.get_new_entries():
+                has_sync_event = True
+                await self._handle_event(event)
+
+            if has_sync_event: continue
+            for event in usdc_event_filter.get_new_entries():
+                has_sync_event = True
+                await self._handle_event(event)
                 
-                if percentage_change >= self.percentage_change_threshold:
-                    logger.info("Trigerring report - Percentage change threshold reached")
-                    self.sync_event.set()
-                    self.previous_value = value
-                else:
-                    logger.info(f"Not triggering report - Percentage change threshold not reached ({percentage_change:.2f}%)")
             time.sleep(polling_interval)
             self._check_time_limit()
-    
-    def initialize_log_loop_thread(self, event_filter):
+
+    def initialize_log_loop_thread(self, dai_event_filter, usdc_event_filter, usdt_event_filter):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        loop.run_until_complete(self._log_loop(event_filter))
+        loop.run_until_complete(self._log_loop(dai_event_filter, usdc_event_filter, usdt_event_filter))
         loop.close()
 
     def listen_sync_events(self):
-        event_filter = self.lp_contract.events.Sync.createFilter(fromBlock='latest')
-        th = threading.Thread(target=self.initialize_log_loop_thread, args=(event_filter,), daemon=True)
+        dai_event_filter = self.dai_lp_contract.events.Sync.createFilter(fromBlock='latest')
+        usdc_event_filter = self.usdc_lp_contract.events.Sync.createFilter(fromBlock='latest')
+        usdt_event_filter = self.usdt_lp_contract.events.Sync.createFilter(fromBlock='latest')
+        th = threading.Thread(
+            target=self.initialize_log_loop_thread,
+            args=(dai_event_filter, usdc_event_filter, usdt_event_filter),
+            daemon=True
+        )
         th.start()
         logger.info("Started listening to LP Sync contract events")
