@@ -78,8 +78,8 @@ class Contract:
     """
     ADDRESS = os.getenv("FETCH_FLEX_V3_ADDRESS")
 
-    def __init__(self):
-        self.provider_url = "http://0.0.0.0:8545"
+    def __init__(self, endpoint_url: str):
+        self.provider_url = endpoint_url
         self.w3 = Web3(Web3.HTTPProvider(self.provider_url))
 
     def _get_contract(self):
@@ -87,12 +87,9 @@ class Contract:
 
 class FlexV3(Contract):
     def __init__(self, datafeed: DataFeed, endpoint: RPCEndpoint, account: ChainedAccount):
-        super().__init__()
+        super().__init__(endpoint.url)
         self.datafeed = datafeed
         self.endpoint = endpoint
-        print(self.endpoint)
-        print(dir(self.endpoint))
-        print(self.endpoint.url)
         self.account = account
         self.flexv3_contract = self._get_contract()
 
