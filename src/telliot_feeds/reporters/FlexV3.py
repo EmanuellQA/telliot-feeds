@@ -122,7 +122,13 @@ class FlexV3(Contract):
             _nonce=nonce,
             _queryData=queryData
         )
+        logger.info(f"""
+            Submitting value to Flex V3 contract:
+            value: {value.hex()}
+            nonce: {nonce}
+        """)
         account_address = Web3.toChecksumAddress(self.account.address)
+        logger.info("Estimating gas limit")
         gas_limit = transaction.estimateGas({"from": account_address})
         tx_dict = {
             "from": account_address,
@@ -132,11 +138,23 @@ class FlexV3(Contract):
         }
         built_tx = transaction.buildTransaction(tx_dict)
 
+        logger.info(f"""
+            Transaction info:
+            from: {built_tx['from']}
+            nonce: {built_tx['nonce']}
+            gas: {built_tx['gas']}
+            gasPrice: {built_tx['gasPrice']}
+        """)
+
         lazy_unlock_account(self.account)
         local_account = self.account.local_account
         tx_signed = local_account.sign_transaction(built_tx)
+        logger.info("Sending submitValueLL transaction")
         tx_hash = self.w3.eth.send_raw_transaction(tx_signed.rawTransaction)
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=360)
+        if tx_receipt["status"] == 0:
+            logger.error(tx_receipt)
+            raise Exception(f"Transaction reverted. ({tx_hash.hex()})\nFailed to confirm transaction\n{tx_receipt}")
         return tx_receipt
         
     async def callSubmitValue(self):
@@ -146,7 +164,7 @@ class FlexV3(Contract):
           query_data = self.datafeed.query.query_data
 
           report_count = self.getNewValueCountbyQueryId(query_id)
-          logger.info(f'Report count: {report_count}')
+          logger.info(f'Report count: {report_count} (query_id: {query_id.hex()})')
 
           _, value_enconded = await self.fetch_new_datapoint()
 
