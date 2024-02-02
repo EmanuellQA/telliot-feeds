@@ -57,6 +57,7 @@ class Contract:
     USDC_ADDRESS = "0x6753560538ECa67617A9Ce605178F788bE7E524E"
 
     def __init__(self, endpoint_url: str):
+        logger.info(f"Initializing LP contract with endpoint_url={endpoint_url}")
         self.provider_url = endpoint_url
         self.w3 = Web3(Web3.HTTPProvider(self.provider_url))
 
@@ -89,6 +90,7 @@ class ListenLPContract(Contract):
         logger.info("Initializing value")
         value, _ = await self.fetch_new_datapoint()
         self.previous_value = value
+        logger.info(f"Initialized with value: {value}")
 
     def _get_percentage_change(self, previous_value, value):
         percentage_change = ((value - previous_value) / previous_value) * 100
@@ -118,6 +120,9 @@ class ListenLPContract(Contract):
             reserve1: {event['args']['reserve1']}
         """)
 
+        if self.is_sync_event_handled:
+            return
+
         value, _ = await self.fetch_new_datapoint()
         percentage_change = self._get_percentage_change(self.previous_value, value)
         
@@ -127,35 +132,38 @@ class ListenLPContract(Contract):
             self.sync_event.set()
         else:
             logger.info(f"Not triggering report - Percentage change threshold not reached ({percentage_change:.2f}%)")
+        
+        self.is_sync_event_handled = True
 
     async def _log_loop(self, dai_event_filter, usdc_event_filter, usdt_event_filter, polling_interval=8):
         while True:
             try:
-                has_sync_event = False
+                self.is_sync_event_handled = False
                 for event in dai_event_filter.get_new_entries():
-                    has_sync_event = True
                     await self._handle_event(event)
 
-                if has_sync_event: continue
                 for event in usdt_event_filter.get_new_entries():
-                    has_sync_event = True
                     await self._handle_event(event)
 
-                if has_sync_event: continue
                 for event in usdc_event_filter.get_new_entries():
-                    has_sync_event = True
                     await self._handle_event(event)
 
                 await self._check_time_limit()    
-                time.sleep(polling_interval)
+                await asyncio.sleep(polling_interval)
             except Exception as e:
                 logger.error(f"Error in log loop: {e}")
 
     def initialize_log_loop_thread(self, dai_event_filter, usdc_event_filter, usdt_event_filter):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(self._log_loop(dai_event_filter, usdc_event_filter, usdt_event_filter))
-        loop.close()
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            asyncio.run_coroutine_threadsafe(
+                self._log_loop(dai_event_filter, usdc_event_filter, usdt_event_filter),
+                loop
+            )
+            loop.run_forever()
+        except Exception as e:
+            logger.error(f"Error in initialize_log_loop_thread: {e}")
 
     def listen_sync_events(self):
         dai_event_filter = self.dai_lp_contract.events.Sync.createFilter(fromBlock='latest')
