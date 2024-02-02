@@ -6,6 +6,7 @@ import time
 import asyncio
 import threading
 from web3 import Web3
+from eth_abi import decode_abi
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -85,6 +86,7 @@ class ListenLPContract(Contract):
         self.time_limit = time_limit
         self.percentage_change_threshold = percentage_change_threshold
         self.fetch_new_datapoint = fetch_new_datapoint
+        self.from_block = self.w3.eth.get_block_number()
     
     async def initialize_price(self):
         logger.info("Initializing value")
@@ -112,12 +114,15 @@ class ListenLPContract(Contract):
         if lp_address == self.USDT_ADDRESS: return "USDT/WPLS"
 
     async def _handle_event(self, event):
+        data_processed = event['data'][2:] if event['data'].startswith('0x') else event['data']
+        reserve0, reserve1 = decode_abi(['uint112', 'uint112'], bytes.fromhex(data_processed))
+
         logger.info(f"""
             LP Sync event received:
             address: {event['address']}
             Pair: {self._address_to_pair_name(event['address'])}
-            reserve0: {event['args']['reserve0']}
-            reserve1: {event['args']['reserve1']}
+            reserve0: {reserve0}
+            reserve1: {reserve1}
         """)
 
         if self.is_sync_event_handled:
@@ -135,44 +140,59 @@ class ListenLPContract(Contract):
         
         self.is_sync_event_handled = True
 
-    async def _log_loop(self, dai_event_filter, usdc_event_filter, usdt_event_filter, polling_interval=8):
+    async def _log_loop(self, polling_interval=8):
         while True:
+            logger.info("Listening Sync events...")
             try:
                 self.is_sync_event_handled = False
-                for event in dai_event_filter.get_new_entries():
+                block_number = self.w3.eth.get_block_number()
+
+                event_filter_dai = {
+                    "fromBlock": self.from_block,
+                    "toBlock": block_number,
+                    "address": self.dai_lp_contract.address,
+                    "topics": [Web3.keccak(text="Sync(uint112,uint112)").hex()],
+                } 
+
+                event_filter_usdt = {
+                    **event_filter_dai,
+                    "address": self.usdt_lp_contract.address
+                }
+
+                event_filter_usdc = {
+                    **event_filter_dai,
+                    "address": self.usdc_lp_contract.address
+                }
+
+                events_dai = self.w3.eth.get_logs(event_filter_dai)
+                events_usdt = self.w3.eth.get_logs(event_filter_usdt)
+                events_usdc = self.w3.eth.get_logs(event_filter_usdc)
+                
+                for event in events_dai:
                     await self._handle_event(event)
 
-                for event in usdt_event_filter.get_new_entries():
+                for event in events_usdt:
                     await self._handle_event(event)
 
-                for event in usdc_event_filter.get_new_entries():
+                for event in events_usdc:
                     await self._handle_event(event)
 
-                await self._check_time_limit()    
+                self.from_block = block_number
+                await self._check_time_limit()
                 await asyncio.sleep(polling_interval)
             except Exception as e:
                 logger.error(f"Error in log loop: {e}")
 
-    def initialize_log_loop_thread(self, dai_event_filter, usdc_event_filter, usdt_event_filter):
+    def initialize_log_loop_thread(self):
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            asyncio.run_coroutine_threadsafe(
-                self._log_loop(dai_event_filter, usdc_event_filter, usdt_event_filter),
-                loop
-            )
+            asyncio.run_coroutine_threadsafe(self._log_loop(), loop)
             loop.run_forever()
         except Exception as e:
             logger.error(f"Error in initialize_log_loop_thread: {e}")
 
     def listen_sync_events(self):
-        dai_event_filter = self.dai_lp_contract.events.Sync.createFilter(fromBlock='latest')
-        usdc_event_filter = self.usdc_lp_contract.events.Sync.createFilter(fromBlock='latest')
-        usdt_event_filter = self.usdt_lp_contract.events.Sync.createFilter(fromBlock='latest')
-        th = threading.Thread(
-            target=self.initialize_log_loop_thread,
-            args=(dai_event_filter, usdc_event_filter, usdt_event_filter),
-            daemon=True
-        )
+        th = threading.Thread(target=self.initialize_log_loop_thread, daemon=True)
         th.start()
         logger.info("Started listening to LP Sync contract events")
