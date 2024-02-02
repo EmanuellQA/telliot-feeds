@@ -7,6 +7,7 @@ from web3 import Web3
 from telliot_core.utils.key_helpers import lazy_unlock_account
 from telliot_feeds.datafeed import DataFeed
 from chained_accounts import ChainedAccount
+from telliot_core.contract.contract import Contract
 from telliot_core.model.endpoints import RPCEndpoint
 from dotenv import load_dotenv
 
@@ -55,6 +56,11 @@ class Contract:
     {
       "inputs": [
         {
+          "internalType": "bytes32",
+          "name": "_queryId",
+          "type": "bytes32"
+        },
+        {
           "internalType": "bytes",
           "name": "_value",
           "type": "bytes"
@@ -83,8 +89,8 @@ class Contract:
         self.provider_url = endpoint_url
         self.w3 = Web3(Web3.HTTPProvider(self.provider_url))
 
-    def _get_contract(self):
-        return self.w3.eth.contract(address=self.ADDRESS, abi=self.ABI)
+    def _get_contract(self, address: str):
+        return self.w3.eth.contract(address=address, abi=self.ABI)
 
 class FlexV3(Contract):
     def __init__(
@@ -93,7 +99,8 @@ class FlexV3(Contract):
       endpoint: RPCEndpoint,
       account: ChainedAccount,
       chain_id: int, 
-      get_fees: Callable
+      get_fees: Callable,
+      oracle: Contract
     ):
         super().__init__(endpoint.url)
         self.datafeed = datafeed
@@ -101,7 +108,8 @@ class FlexV3(Contract):
         self.account = account
         self.chain_id = chain_id
         self.get_fees = get_fees
-        self.flexv3_contract = self._get_contract()
+        self.oracle = oracle
+        self.flexv3_contract = self._get_contract(self.oracle.address)
 
     async def fetch_new_datapoint(self):
         await self.datafeed.source.fetch_new_datapoint()
@@ -125,9 +133,10 @@ class FlexV3(Contract):
         priceGwei = self.w3.fromWei(self.w3.eth.gas_price, "gwei")
         return float(priceGwei) * 1.4
 
-    def submitValue(self, value, nonce, queryData):
+    def submitValue(self, value, nonce, queryData, queryId):
         contract_function = self.flexv3_contract.get_function_by_name('submitValue')
         transaction = contract_function(
+            _queryId=queryId,
             _value=value,
             _nonce=nonce,
             _queryData=queryData
@@ -136,6 +145,7 @@ class FlexV3(Contract):
             Submitting value to Flex V3 contract:
             value: {value.hex()}
             nonce: {nonce}
+            _queryId: {queryId.hex()}
         """)
         account_address = Web3.toChecksumAddress(self.account.address)
         logger.info("Estimating gas limit")
@@ -165,7 +175,7 @@ class FlexV3(Contract):
         lazy_unlock_account(self.account)
         local_account = self.account.local_account
         tx_signed = local_account.sign_transaction(built_tx)
-        logger.info("Sending submitValueLL transaction")
+        logger.info("Sending submitValue transaction")
         tx_hash = self.w3.eth.send_raw_transaction(tx_signed.rawTransaction)
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=360)
         if tx_receipt["status"] == 0:
@@ -187,7 +197,8 @@ class FlexV3(Contract):
           tx_receipt = self.submitValue(
               value=value_enconded,
               nonce=report_count,
-              queryData=query_data
+              queryData=query_data,
+              queryId=query_id
           )
           tx_hash = tx_receipt['transactionHash'].hex()
           tx_url = f"{self.endpoint.explorer}/tx/{tx_hash}"

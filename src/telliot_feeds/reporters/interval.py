@@ -665,7 +665,7 @@ class IntervalReporter:
             sync_event = threading.Event()
             time_limit_event = threading.Event()
 
-            flexV3 = FlexV3(datafeed, self.endpoint, self.account, self.chain_id, self.get_fees)
+            flexV3 = FlexV3(datafeed, self.endpoint, self.account, self.chain_id, self.get_fees, self.oracle)
             listen_lp_contract = ListenLPContract(
                 sync_event=sync_event,
                 time_limit_event=time_limit_event,
