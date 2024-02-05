@@ -6,6 +6,7 @@ import time
 import asyncio
 import threading
 from web3 import Web3
+from web3.contract import Contract
 from eth_abi import decode_abi
 from dotenv import load_dotenv
 
@@ -53,17 +54,36 @@ class Contract:
     }
     ]
     """
-    DAI_ADDRESS = "0xE56043671df55dE5CDf8459710433C10324DE0aE"
-    USDT_ADDRESS = "0x322Df7921F28F1146Cdf62aFdaC0D6bC0Ab80711"
-    USDC_ADDRESS = "0x6753560538ECa67617A9Ce605178F788bE7E524E"
+    DEFAULT_LP_ADDRESSES = [
+        '0x322Df7921F28F1146Cdf62aFdaC0D6bC0Ab80711',
+        '0x6753560538ECa67617A9Ce605178F788bE7E524E',
+        '0xE56043671df55dE5CDf8459710433C10324DE0aE'
+    ]
+    DEFAULT_LP_CURRENCY_ORDER = [
+        'usdt/wpls',
+        'usdc/wpls',
+        'wpls/dai'
+    ]
 
     def __init__(self, endpoint_url: str):
         logger.info(f"Initializing LP contract with endpoint_url={endpoint_url}")
         self.provider_url = endpoint_url
         self.w3 = Web3(Web3.HTTPProvider(self.provider_url))
 
-    def _get_contract(self, LP_pair: str):
-        address = getattr(self, f"{LP_pair}_ADDRESS")
+    def _get_LPs_config(self):
+        address_sources = os.getenv("PLS_ADDR_SOURCES")
+        currency_order = os.getenv("PLS_LPS_ORDER")
+
+        if not address_sources and not currency_order:
+            return dict(zip(self.DEFAULT_LP_ADDRESSES, self.DEFAULT_LP_CURRENCY_ORDER))
+        
+        addresses = [Web3.toChecksumAddress(address.strip()) for address in address_sources.split(',')] 
+        currencies = [currency.strip() for currency in currency_order.split(',')]
+        assert len(addresses) == len(currencies), "Address sources and currency order must have the same length"
+        return dict(zip(addresses, currencies))
+
+    def _get_contract(self, address: str):
+        logger.info(f"LP contract address = {address}")
         return self.w3.eth.contract(address=address, abi=self.ABI)
 
 class ListenLPContract(Contract):
@@ -77,9 +97,9 @@ class ListenLPContract(Contract):
             percentage_change_threshold:float=0.5
     ):
         super().__init__(os.getenv('LP_PULSE_NETWORK_URL', 'https://rpc.pulsechain.com'))
-        self.dai_lp_contract = self._get_contract('DAI')
-        self.usdc_lp_contract = self._get_contract('USDC')
-        self.usdt_lp_contract = self._get_contract('USDT')
+        self.lps_config: dict[str,str] = self._get_LPs_config()
+        self.lps_contracts: list[Contract] = [self._get_contract(lp_address) for lp_address in self.lps_config.keys()]
+
         self.sync_event = sync_event
         self.time_limit_event = time_limit_event
         self.current_report_time = current_report_time
@@ -109,9 +129,7 @@ class ListenLPContract(Contract):
                 self.sync_event.set()
 
     def _address_to_pair_name(self, lp_address: str):
-        if lp_address == self.DAI_ADDRESS: return "WPLS/DAI"
-        if lp_address == self.USDC_ADDRESS: return "USDC/WPLS"
-        if lp_address == self.USDT_ADDRESS: return "USDT/WPLS"
+        return self.lps_config[lp_address]
 
     async def _handle_event(self, event):
         data_processed = event['data'][2:] if event['data'].startswith('0x') else event['data']
@@ -126,6 +144,14 @@ class ListenLPContract(Contract):
         """)
 
         if self.is_sync_event_handled:
+            logger.info(
+                f"""
+                Sync event already handled in the current poll:
+                Pair: {self.pair_handled_data['name']}
+                reserve0: {self.pair_handled_data['reserve0']}
+                reserve1: {self.pair_handled_data['reserve1']}
+                """
+            )
             return
 
         value, _ = await self.fetch_new_datapoint()
@@ -139,43 +165,32 @@ class ListenLPContract(Contract):
             logger.info(f"Not triggering report - Percentage change threshold not reached ({percentage_change:.2f}%)")
         
         self.is_sync_event_handled = True
+        self.pair_handled_data = {
+            'name': self._address_to_pair_name(event['address']), 'reserve0': reserve0, 'reserve1': reserve1
+        }
 
     async def _log_loop(self, polling_interval=8):
         while True:
             logger.info("Listening Sync events...")
             try:
                 self.is_sync_event_handled = False
+                self.pair_handled_data = None
                 block_number = self.w3.eth.get_block_number()
 
-                event_filter_dai = {
-                    "fromBlock": self.from_block,
-                    "toBlock": block_number,
-                    "address": self.dai_lp_contract.address,
-                    "topics": [Web3.keccak(text="Sync(uint112,uint112)").hex()],
-                } 
+                event_filters = [
+                    {
+                        "fromBlock": self.from_block,
+                        "toBlock": block_number,
+                        "address": lp_contract.address,
+                        "topics": [Web3.keccak(text="Sync(uint112,uint112)").hex()],
+                    } for lp_contract in self.lps_contracts
+                ]
 
-                event_filter_usdt = {
-                    **event_filter_dai,
-                    "address": self.usdt_lp_contract.address
-                }
+                for event_filter in event_filters:
+                    events = self.w3.eth.get_logs(event_filter)
 
-                event_filter_usdc = {
-                    **event_filter_dai,
-                    "address": self.usdc_lp_contract.address
-                }
-
-                events_dai = self.w3.eth.get_logs(event_filter_dai)
-                events_usdt = self.w3.eth.get_logs(event_filter_usdt)
-                events_usdc = self.w3.eth.get_logs(event_filter_usdc)
-                
-                for event in events_dai:
-                    await self._handle_event(event)
-
-                for event in events_usdt:
-                    await self._handle_event(event)
-
-                for event in events_usdc:
-                    await self._handle_event(event)
+                    for event in events:
+                        await self._handle_event(event)
 
                 self.from_block = block_number
                 await self._check_time_limit()
