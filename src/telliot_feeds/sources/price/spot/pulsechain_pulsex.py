@@ -164,19 +164,23 @@ class PulsechainPulseXService(WebPriceService):
             """) 
             
             if asset == "validated-feed":
-                r = requests.get(f'{DEXSCREENER_BASE_URL}/{contract_addr}')
-                
-                priceUsd = Decimal(r.json()['pair']['priceUsd'])
-                logger.info(f"""
-                    Dexscreener API priceUsd: {priceUsd}
-                    LP address ({asset}-{currency}): {contract_addr}
-                    LP price: {price}
-                    Abs Diff: {abs(priceUsd - price)}
-                    Abs tolereance: {self.absolute_tolerance}
-                    Is close? {math.isclose(priceUsd, price, abs_tol=self.absolute_tolerance)}
-                """)
-                if not math.isclose(priceUsd, price, abs_tol=self.absolute_tolerance):
-                    logger.warning(f"Price from dexscreener API is different from LP price")
+                try:
+                    r = requests.get(f'{DEXSCREENER_BASE_URL}/{contract_addr}')
+                    
+                    priceUsd = Decimal(r.json()['pair']['priceUsd'])
+                    logger.info(f"""
+                        Dexscreener API priceUsd: {priceUsd}
+                        LP address ({asset}-{currency}): {contract_addr}
+                        LP price: {price}
+                        Abs Diff: {abs(priceUsd - price)}
+                        Abs tolereance: {self.absolute_tolerance}
+                        Is close? {math.isclose(priceUsd, price, abs_tol=self.absolute_tolerance)}
+                    """)
+                    if not math.isclose(priceUsd, price, abs_tol=self.absolute_tolerance):
+                        logger.warning(f"Price from dexscreener API is different from LP price")
+                        return None, None
+                except Exception as e:
+                    logger.error(f"Error fetching dexscreener API: {e}")
                     return None, None
 
             if self.debugging_price:

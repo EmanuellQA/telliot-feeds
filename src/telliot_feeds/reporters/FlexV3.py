@@ -126,19 +126,23 @@ class FlexV3(Contract):
             return False
 
     async def fetch_new_datapoint(self):
-        await self.datafeed.source.fetch_new_datapoint()
-        latest_data = self.datafeed.source.latest
-        if latest_data[0] is None: raise Exception("Unable to retrieve updated datafeed value.")
-        
-        logger.info(f"Current query: {self.datafeed.query.descriptor}")
-        query = self.datafeed.query
         try:
-            value = query.value_type.encode(latest_data[0])
-            logger.debug(f"Value: {latest_data[0]} - Encoded value: {value.hex()}")
-        except Exception as e:
-            raise Exception(f"Error encoding response value {latest_data[0]} - {e}")
+          await self.datafeed.source.fetch_new_datapoint()
+          latest_data = self.datafeed.source.latest
+          if latest_data[0] is None: raise Exception("Unable to retrieve updated datafeed value.")
+          
+          logger.info(f"Current query: {self.datafeed.query.descriptor}")
+          query = self.datafeed.query
+          try:
+              value = query.value_type.encode(latest_data[0])
+              logger.debug(f"Value: {latest_data[0]} - Encoded value: {value.hex()}")
+          except Exception as e:
+              raise Exception(f"Error encoding response value {latest_data[0]} - {e}")
 
-        return latest_data[0], value
+          return latest_data[0], value
+        except Exception as e:
+            logger.error(f"Error fetching new datapoint: {e}")
+            return None, None
 
     def getNewValueCountbyQueryId(self, query_id):
         return self.flexv3_contract.functions.getNewValueCountbyQueryId(query_id).call()
