@@ -2,7 +2,9 @@ import os
 from collections.abc import Callable
 import logging
 from logging.handlers import RotatingFileHandler
+import math
 
+import requests
 from web3 import Web3
 from telliot_core.utils.key_helpers import lazy_unlock_account
 from telliot_feeds.datafeed import DataFeed
@@ -87,6 +89,8 @@ class Contract:
         return self.w3.eth.contract(address=self.ADDRESS, abi=self.ABI)
 
 class FlexV3(Contract):
+    COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3'
+
     def __init__(
       self,
       datafeed: DataFeed,
@@ -102,6 +106,24 @@ class FlexV3(Contract):
         self.chain_id = chain_id
         self.get_fees = get_fees
         self.flexv3_contract = self._get_contract()
+        self.absolute_tolerance = float(os.getenv("PRICE_DIFF_ABSOLUTE_TOLERANCE", 1e-2))
+
+    def _is_close_to_coingecko_pls_price(self, value: float):
+        try:
+            r = requests.get(f'{self.COINGECKO_BASE_URL}/simple/price?ids=pulsechain&vs_currencies=usd')
+            data = r.json()
+            coingecko_pls_price = data['pulsechain']['usd']
+            logger.info(f"""
+                Coingecko pls price: {coingecko_pls_price}
+                Datafeed value: {value}
+                Abs Diff: {abs(value - coingecko_pls_price)}
+                Abs tolereance: {self.absolute_tolerance}
+                Is close? {math.isclose(value, coingecko_pls_price, abs_tol=self.absolute_tolerance)}
+            """)
+            return math.isclose(value, coingecko_pls_price, abs_tol=self.absolute_tolerance)
+        except Exception as e:
+            logger.error(f"Error fetching coingecko pls price: {e}")
+            return False
 
     async def fetch_new_datapoint(self):
         await self.datafeed.source.fetch_new_datapoint()
@@ -165,7 +187,7 @@ class FlexV3(Contract):
         lazy_unlock_account(self.account)
         local_account = self.account.local_account
         tx_signed = local_account.sign_transaction(built_tx)
-        logger.info("Sending submitValueLL transaction")
+        logger.info("Sending submitValue transaction")
         tx_hash = self.w3.eth.send_raw_transaction(tx_signed.rawTransaction)
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=360)
         if tx_receipt["status"] == 0:
@@ -182,7 +204,10 @@ class FlexV3(Contract):
           report_count = self.getNewValueCountbyQueryId(query_id)
           logger.info(f'Report count: {report_count} (query_id: {query_id.hex()})')
 
-          _, value_enconded = await self.fetch_new_datapoint()
+          value, value_enconded = await self.fetch_new_datapoint()
+
+          if not self._is_close_to_coingecko_pls_price(value):
+            raise Exception(f"Datafeed value {value} is not close to coingecko pls price")
 
           tx_receipt = self.submitValue(
               value=value_enconded,
