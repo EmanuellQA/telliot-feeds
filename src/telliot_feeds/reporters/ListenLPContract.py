@@ -107,12 +107,19 @@ class ListenLPContract(Contract):
         self.percentage_change_threshold = percentage_change_threshold
         self.fetch_new_datapoint = fetch_new_datapoint
         self.from_block = self.w3.eth.get_block_number()
+        self.is_initialized = False
     
     async def initialize_price(self):
-        logger.info("Initializing value")
-        value, _ = await self.fetch_new_datapoint()
-        self.previous_value = value
-        logger.info(f"Initialized with value: {value}")
+        try:
+            if self.is_initialized: return
+            logger.info("Initializing value")
+            value, _ = await self.fetch_new_datapoint()
+            if value is None: raise Exception("Error fetching new datapoint for initialization")
+            self.previous_value = value
+            logger.info(f"Initialized with value: {value}")
+            self.is_initialized = True
+        except Exception as e:
+            logger.error(f"Error initializing price: {e}")
 
     def _get_percentage_change(self, previous_value, value):
         percentage_change = ((value - previous_value) / previous_value) * 100
@@ -124,6 +131,7 @@ class ListenLPContract(Contract):
             if not self.time_limit_event.is_set():
                 logger.info(f"Time limit reached, setting time limit event (time elapsed={time_elapsed:.2f}, time limit={self.time_limit})")
                 value, _ = await self.fetch_new_datapoint()
+                if value is None: raise Exception("Error fetching new datapoint for time limit event")
                 self.previous_value = value
                 self.time_limit_event.set()
                 self.sync_event.set()
@@ -172,6 +180,7 @@ class ListenLPContract(Contract):
     async def _log_loop(self, polling_interval=8):
         while True:
             logger.info("Listening Sync events...")
+            if not self.is_initialized: await self.initialize_price()
             try:
                 self.is_sync_event_handled = False
                 self.pair_handled_data = None
