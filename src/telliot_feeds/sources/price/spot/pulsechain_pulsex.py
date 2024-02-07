@@ -16,8 +16,6 @@ import requests
 import math
 from decimal import Decimal
 
-DEXSCREENER_BASE_URL = "https://api.dexscreener.com/latest/dex/pairs/pulsechain"
-
 URLS = {
     'usdt': 'https://api.dexscreener.com/latest/dex/pairs/pulsechain/0x322Df7921F28F1146Cdf62aFdaC0D6bC0Ab80711',
     'usdc': 'https://api.dexscreener.com/latest/dex/pairs/pulsechain/0x6753560538ECa67617A9Ce605178F788bE7E524E',
@@ -33,6 +31,8 @@ class bcolors:
 
 
 load_dotenv()
+
+DEXSCREENER_BASE_URL = os.getenv("DEXSCREENER_MOCK_URL", "https://api.dexscreener.com/latest/dex/pairs/pulsechain")
 
 DEFAULT_LP_CURRENCIES = ['usdt', 'usdc', 'dai']
 DEFAULT_LP_ADDRESSES = [

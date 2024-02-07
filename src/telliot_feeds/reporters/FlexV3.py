@@ -95,7 +95,7 @@ class Contract:
         return self.w3.eth.contract(address=address, abi=self.ABI)
 
 class FlexV3(Contract):
-    COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3'
+    COINGECKO_BASE_URL = os.getenv('COINGECKO_MOCK_URL', 'https://api.coingecko.com/api/v3')
 
     def __init__(
       self,
