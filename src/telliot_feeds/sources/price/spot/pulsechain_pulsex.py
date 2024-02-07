@@ -180,8 +180,7 @@ class PulsechainPulseXService(WebPriceService):
                         logger.warning(f"Price from dexscreener API is different from LP price")
                         return None, None
                 except Exception as e:
-                    logger.error(f"Error fetching dexscreener API: {e}")
-                    return None, None
+                    logger.warning(f"Error fetching dexscreener API: {e}")
 
             if self.debugging_price:
                 r = requests.get(URLS[currency])

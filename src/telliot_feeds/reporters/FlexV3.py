@@ -130,8 +130,8 @@ class FlexV3(Contract):
             """)
             return math.isclose(value, coingecko_pls_price, abs_tol=self.absolute_tolerance)
         except Exception as e:
-            logger.error(f"Error fetching coingecko pls price: {e}")
-            return False
+            logger.warning(f"Error fetching coingecko pls price: {e}")
+            return True
 
     async def fetch_new_datapoint(self):
         try:
