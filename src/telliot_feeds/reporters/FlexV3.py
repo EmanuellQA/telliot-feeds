@@ -11,27 +11,12 @@ from telliot_feeds.datafeed import DataFeed
 from chained_accounts import ChainedAccount
 from telliot_core.contract.contract import Contract
 from telliot_core.model.endpoints import RPCEndpoint
+from telliot_feeds.utils.log import get_logger
 from dotenv import load_dotenv
 
 load_dotenv()
 
-def get_logger(logger_name: str):
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter(f'\033[94m%(name)s - %(levelname)s - %(message)s\033[0m')
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-    rotating_file_handler = RotatingFileHandler(
-        filename=f'{logger_name}.log',
-        maxBytes=10000000,
-        backupCount=5
-    )
-    rotating_file_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
-    logger.addHandler(rotating_file_handler)
-    return logger
-
-logger = get_logger('FlexV3')
+logger = get_logger(__name__)
 
 class Contract:
     ABI = """
