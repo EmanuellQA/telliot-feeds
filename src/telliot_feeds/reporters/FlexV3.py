@@ -2,7 +2,9 @@ import os
 from collections.abc import Callable
 import logging
 from logging.handlers import RotatingFileHandler
+import math
 
+import requests
 from web3 import Web3
 from telliot_core.utils.key_helpers import lazy_unlock_account
 from telliot_feeds.datafeed import DataFeed
@@ -93,6 +95,8 @@ class Contract:
         return self.w3.eth.contract(address=address, abi=self.ABI)
 
 class FlexV3(Contract):
+    COINGECKO_BASE_URL = os.getenv('COINGECKO_MOCK_URL', 'https://api.coingecko.com/api/v3')
+
     def __init__(
       self,
       datafeed: DataFeed,
@@ -110,21 +114,43 @@ class FlexV3(Contract):
         self.get_fees = get_fees
         self.oracle = oracle
         self.flexv3_contract = self._get_contract(self.oracle.address)
+        self.absolute_tolerance = float(os.getenv("PRICE_DIFF_ABSOLUTE_TOLERANCE", 1e-2))
+
+    def _is_close_to_coingecko_pls_price(self, value: float):
+        try:
+            r = requests.get(f'{self.COINGECKO_BASE_URL}/simple/price?ids=pulsechain&vs_currencies=usd')
+            data = r.json()
+            coingecko_pls_price = data['pulsechain']['usd']
+            logger.info(f"""
+                Coingecko pls price: {coingecko_pls_price}
+                Datafeed value: {value}
+                Abs Diff: {abs(value - coingecko_pls_price)}
+                Abs tolereance: {self.absolute_tolerance}
+                Is close? {math.isclose(value, coingecko_pls_price, abs_tol=self.absolute_tolerance)}
+            """)
+            return math.isclose(value, coingecko_pls_price, abs_tol=self.absolute_tolerance)
+        except Exception as e:
+            logger.warning(f"Error fetching coingecko pls price: {e}")
+            return True
 
     async def fetch_new_datapoint(self):
-        await self.datafeed.source.fetch_new_datapoint()
-        latest_data = self.datafeed.source.latest
-        if latest_data[0] is None: raise Exception("Unable to retrieve updated datafeed value.")
-        
-        logger.info(f"Current query: {self.datafeed.query.descriptor}")
-        query = self.datafeed.query
         try:
-            value = query.value_type.encode(latest_data[0])
-            logger.debug(f"Value: {latest_data[0]} - Encoded value: {value.hex()}")
-        except Exception as e:
-            raise Exception(f"Error encoding response value {latest_data[0]} - {e}")
+          await self.datafeed.source.fetch_new_datapoint()
+          latest_data = self.datafeed.source.latest
+          if latest_data[0] is None: raise Exception("Unable to retrieve updated datafeed value.")
+          
+          logger.info(f"Current query: {self.datafeed.query.descriptor}")
+          query = self.datafeed.query
+          try:
+              value = query.value_type.encode(latest_data[0])
+              logger.debug(f"Value: {latest_data[0]} - Encoded value: {value.hex()}")
+          except Exception as e:
+              raise Exception(f"Error encoding response value {latest_data[0]} - {e}")
 
-        return latest_data[0], value
+          return latest_data[0], value
+        except Exception as e:
+            logger.error(f"Error fetching new datapoint: {e}")
+            return None, None
 
     def getNewValueCountbyQueryId(self, query_id):
         return self.flexv3_contract.functions.getNewValueCountbyQueryId(query_id).call()
@@ -192,7 +218,10 @@ class FlexV3(Contract):
           report_count = self.getNewValueCountbyQueryId(query_id)
           logger.info(f'Report count: {report_count} (query_id: {query_id.hex()})')
 
-          _, value_enconded = await self.fetch_new_datapoint()
+          value, value_enconded = await self.fetch_new_datapoint()
+
+          if not self._is_close_to_coingecko_pls_price(value):
+            raise Exception(f"Datafeed value {value} is not close to coingecko pls price")
 
           tx_receipt = self.submitValue(
               value=value_enconded,

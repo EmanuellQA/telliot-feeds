@@ -32,6 +32,8 @@ class bcolors:
 
 load_dotenv()
 
+DEXSCREENER_BASE_URL = os.getenv("DEXSCREENER_MOCK_URL", "https://api.dexscreener.com/latest/dex/pairs/pulsechain")
+
 DEFAULT_LP_CURRENCIES = ['usdt', 'usdc', 'dai']
 DEFAULT_LP_ADDRESSES = [
     '0x322Df7921F28F1146Cdf62aFdaC0D6bC0Ab80711',
@@ -100,6 +102,7 @@ class PulsechainPulseXService(WebPriceService):
         kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "https://rpc.pulsechain.com")
         kwargs["timeout"] = 10.0
         self.debugging_price = os.getenv("DEBUGGING_PRICE", 'False').lower() in ('true', '1', 't')
+        self.absolute_tolerance = float(os.getenv("PRICE_DIFF_ABSOLUTE_TOLERANCE", 1e-2))
         super().__init__(**kwargs)
 
     async def get_price(self, asset: str, currency: str) -> OptionalDataPoint[float]:
@@ -118,7 +121,7 @@ class PulsechainPulseXService(WebPriceService):
 
         contract_addr = addrs.get(currency)
         
-        if asset != 'pls':
+        if asset != 'pls' and asset != 'validated-feed':
             logger.error(f"Asset not supported: {asset}")
             return None, None
 
@@ -158,7 +161,26 @@ class PulsechainPulseXService(WebPriceService):
             logger.info(f"""
                 LP price for {asset}-{currency}: {price}
                 LP contract address: {contract_addr}
-            """)
+            """) 
+            
+            if asset == "validated-feed":
+                try:
+                    r = requests.get(f'{DEXSCREENER_BASE_URL}/{contract_addr}')
+                    
+                    priceUsd = Decimal(r.json()['pair']['priceUsd'])
+                    logger.info(f"""
+                        Dexscreener API priceUsd: {priceUsd}
+                        LP address ({asset}-{currency}): {contract_addr}
+                        LP price: {price}
+                        Abs Diff: {abs(priceUsd - price)}
+                        Abs tolereance: {self.absolute_tolerance}
+                        Is close? {math.isclose(priceUsd, price, abs_tol=self.absolute_tolerance)}
+                    """)
+                    if not math.isclose(priceUsd, price, abs_tol=self.absolute_tolerance):
+                        logger.warning(f"Price from dexscreener API is different from LP price")
+                        return None, None
+                except Exception as e:
+                    logger.warning(f"Error fetching dexscreener API: {e}")
 
             if self.debugging_price:
                 r = requests.get(URLS[currency])
