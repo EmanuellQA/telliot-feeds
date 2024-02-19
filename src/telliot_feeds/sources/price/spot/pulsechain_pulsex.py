@@ -16,6 +16,7 @@ import requests
 import math
 from decimal import Decimal
 
+# TODO, remove this and use price service API
 URLS = {
     'usdt': 'https://api.dexscreener.com/latest/dex/pairs/pulsechain/0x322Df7921F28F1146Cdf62aFdaC0D6bC0Ab80711',
     'usdc': 'https://api.dexscreener.com/latest/dex/pairs/pulsechain/0x6753560538ECa67617A9Ce605178F788bE7E524E',
@@ -31,8 +32,6 @@ class bcolors:
 
 
 load_dotenv()
-
-DEXSCREENER_BASE_URL = os.getenv("DEXSCREENER_MOCK_URL", "https://api.dexscreener.com/latest/dex/pairs/pulsechain")
 
 DEFAULT_LP_CURRENCIES = ['usdt', 'usdc', 'dai']
 DEFAULT_LP_ADDRESSES = [
@@ -105,6 +104,37 @@ class PulsechainPulseXService(WebPriceService):
         self.absolute_tolerance = float(os.getenv("PRICE_DIFF_ABSOLUTE_TOLERANCE", 1e-2))
         super().__init__(**kwargs)
 
+    def _get_token_names(self, currency: str):
+        token0, token1 = pls_lps_order[currency].split('/')
+        return token0.strip().upper(), token1.strip().upper()
+    
+    def _is_price_valid(self, currency: str, telliot_price: Decimal):
+        token0, token1 = self._get_token_names(currency)
+        price_service_base_url = os.getenv("PRICE_SERVICE_BASE_URL", "http://127.0.0.1:3333")
+        contract_addr = addrs[currency]
+
+        request_url = f"{price_service_base_url}/liquidity-pool/{token0}/{token1}/{contract_addr}"
+        r = requests.get(request_url)
+        data = r.json()
+        price = Decimal(data['price'])
+
+        is_close = math.isclose(price, telliot_price, abs_tol=self.absolute_tolerance)
+        green_color = '\033[92m'
+        endc_color = '\033[0m'
+        logger.info(f"""
+            {green_color}
+            Price Service API info:
+            Request URL: {request_url}
+            LP address ({token0}-{token1}): {contract_addr}
+            API Price: {price}
+            Telliot Price: {telliot_price}
+            Abs Diff: {abs(price - telliot_price)}
+            Abs tolerance: {self.absolute_tolerance}
+            Is close? {is_close}
+            {endc_color}
+        """)
+        return is_close
+
     async def get_price(self, asset: str, currency: str) -> OptionalDataPoint[float]:
         """Implement PriceServiceInterface
 
@@ -165,22 +195,11 @@ class PulsechainPulseXService(WebPriceService):
             
             if asset == "validated-feed":
                 try:
-                    r = requests.get(f'{DEXSCREENER_BASE_URL}/{contract_addr}')
-                    
-                    priceUsd = Decimal(r.json()['pair']['priceUsd'])
-                    logger.info(f"""
-                        Dexscreener API priceUsd: {priceUsd}
-                        LP address ({asset}-{currency}): {contract_addr}
-                        LP price: {price}
-                        Abs Diff: {abs(priceUsd - price)}
-                        Abs tolereance: {self.absolute_tolerance}
-                        Is close? {math.isclose(priceUsd, price, abs_tol=self.absolute_tolerance)}
-                    """)
-                    if not math.isclose(priceUsd, price, abs_tol=self.absolute_tolerance):
+                    if not self._is_price_valid(currency, price):
                         logger.warning(f"Price from dexscreener API is different from LP price")
                         return None, None
                 except Exception as e:
-                    logger.warning(f"Error fetching dexscreener API: {e}")
+                    logger.warning(f"Error validating price with Price Service API: {e}")
 
             if self.debugging_price:
                 r = requests.get(URLS[currency])
