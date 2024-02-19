@@ -139,7 +139,6 @@ class FlexV3(Contract):
                 is_close = math.isclose(value, price, abs_tol=self.absolute_tolerance)
                 if is_close: break
 
-            
             logger.info(f"""
                 {green_color}
                 Price Service API info:
@@ -247,7 +246,7 @@ class FlexV3(Contract):
           value, value_enconded = await self.fetch_new_datapoint()
 
           if not self._is_price_valid(value):
-            raise Exception(f"Datafeed value {value} is not close to coingecko pls price")
+            raise Exception(f"Datafeed value {value} is not close to price service api pls price")
 
           tx_receipt = self.submitValue(
               value=value_enconded,
