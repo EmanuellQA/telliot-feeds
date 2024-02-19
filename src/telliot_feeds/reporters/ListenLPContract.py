@@ -77,9 +77,7 @@ class ListenLPContract(Contract):
             sync_event: threading.Event,
             time_limit_event: threading.Event,
             current_report_time: dict[str,int],
-            fetch_new_datapoint: Callable,
-            time_limit:int=3600,
-            percentage_change_threshold:float=0.5
+            fetch_new_datapoint: Callable
     ):
         super().__init__(os.getenv('LP_PULSE_NETWORK_URL', 'https://rpc.pulsechain.com'))
         self.lps_config: dict[str,str] = self._get_LPs_config()
@@ -88,11 +86,14 @@ class ListenLPContract(Contract):
         self.sync_event = sync_event
         self.time_limit_event = time_limit_event
         self.current_report_time = current_report_time
-        self.time_limit = time_limit
-        self.percentage_change_threshold = percentage_change_threshold
+        self.time_limit = int(os.getenv('REPORT_TIME_LIMIT', 3600))
+        self.percentage_change_threshold = float(os.getenv('PERCENTAGE_CHANGE_THRESHOLD', 0.5))
         self.fetch_new_datapoint = fetch_new_datapoint
         self.from_block = self.w3.eth.get_block_number()
         self.is_initialized = False
+
+        logger.info(f"Time limit: {self.time_limit} seconds")
+        logger.info(f"Percentage change threshold: {self.percentage_change_threshold}%")
     
     async def initialize_price(self):
         try:
