@@ -651,6 +651,43 @@ class IntervalReporter:
             logger.error(status)
 
         return tx_receipt, status
+    
+    async def managed_feed_report(self, submit_once: bool = False) -> None:
+        logger.info("Using managed feed to submit values")
+
+        datafeed = await self.fetch_datafeed()
+
+        current_report_time = { "timestamp": time.time() }
+        sync_event = threading.Event()
+        time_limit_event = threading.Event()
+
+        flexV3 = FlexV3(datafeed, self.endpoint, self.account, self.chain_id, self.get_fees, self.oracle)
+        listen_lp_contract = ListenLPContract(
+            sync_event=sync_event,
+            time_limit_event=time_limit_event,
+            current_report_time=current_report_time,
+            fetch_new_datapoint=flexV3.fetch_new_datapoint
+        )
+        await listen_lp_contract.initialize_price()
+
+        listen_lp_contract.listen_sync_events()
+
+        sync_event.set()
+        logger.info("Triggered first LP sync event report")
+        while True:
+            logger.info("Waiting for LP sync event report trigger...")
+            sync_event.wait()
+            
+            if time_limit_event.is_set():
+                logger.info("Time limit reached! Submitting price")
+
+            logger.info("Report triggered")
+            await flexV3.callSubmitValue()
+            current_report_time["timestamp"] = time.time()
+            sync_event.clear()
+            time_limit_event.clear()
+
+            if submit_once: break
 
     async def report(self, report_count: Optional[int] = None) -> None:
         """Submit values to Fetch oracles on an interval."""
@@ -659,37 +696,7 @@ class IntervalReporter:
         asset = datafeed.query.asset
 
         if asset == "validated-feed":
-            logger.info("Using FetchFlexV3 to submit values")
-
-            current_report_time = { "timestamp": time.time() }
-            sync_event = threading.Event()
-            time_limit_event = threading.Event()
-
-            flexV3 = FlexV3(datafeed, self.endpoint, self.account, self.chain_id, self.get_fees, self.oracle)
-            listen_lp_contract = ListenLPContract(
-                sync_event=sync_event,
-                time_limit_event=time_limit_event,
-                current_report_time=current_report_time,
-                fetch_new_datapoint=flexV3.fetch_new_datapoint
-            )
-            await listen_lp_contract.initialize_price()
-
-            listen_lp_contract.listen_sync_events()
-
-            sync_event.set()
-            logger.info("Triggered first LP sync event report")
-            while True:
-                logger.info("Waiting for LP sync event report trigger...")
-                sync_event.wait()
-                
-                if time_limit_event.is_set():
-                    logger.info("Time limit reached! Submitting price")
-
-                logger.info("Report triggered")
-                await flexV3.callSubmitValue()
-                current_report_time["timestamp"] = time.time()
-                sync_event.clear()
-                time_limit_event.clear()
+            await self.managed_feed_report()
         else:
             while report_count is None or report_count > 0:
                 online = await self.is_online()

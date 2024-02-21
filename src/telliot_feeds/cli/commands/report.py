@@ -517,6 +517,9 @@ async def report(
             }) # type: ignore
 
         if submit_once:
-            _, _ = await reporter.report_once()
+            if chosen_feed.query.asset == 'validated-feed':
+                await reporter.managed_feed_report(submit_once=True)
+            else:
+                _, _ = await reporter.report_once()
         else:
             await reporter.report()
