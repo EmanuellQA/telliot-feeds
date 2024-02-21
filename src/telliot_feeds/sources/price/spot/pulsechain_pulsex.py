@@ -142,7 +142,7 @@ class PulsechainPulseXService(WebPriceService):
                 priceUsd * 1e5: {priceUsd_copy}
                 price * 1e5: {price_copy}
 
-                Price INCORRECT ({asset}-{currency}):
+                Price INCORRECT ({token0}-{token1}):
                 Pair dexscreener API priceUsd: {priceUsd_copy}
                 Reported price rounded: {round(price_copy, 8)}
                 math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
