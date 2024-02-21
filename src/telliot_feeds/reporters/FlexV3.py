@@ -1,8 +1,7 @@
 import os
 from collections.abc import Callable
-import math
 
-from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlencode
 
 import requests
 from web3 import Web3
@@ -89,7 +88,9 @@ class FlexV3(Contract):
       account: ChainedAccount,
       chain_id: int, 
       get_fees: Callable,
-      oracle: Contract
+      oracle: Contract,
+      price_validation_method: str,
+      price_validation_consensus: str
     ):
         super().__init__(endpoint.url)
         self.datafeed = datafeed
@@ -98,6 +99,8 @@ class FlexV3(Contract):
         self.chain_id = chain_id
         self.get_fees = get_fees
         self.oracle = oracle
+        self.price_validation_method = price_validation_method
+        self.price_validation_consensus = price_validation_consensus
         self.flexv3_contract = self._get_contract(self.oracle.address)
         self.absolute_tolerance = float(os.getenv("PRICE_DIFF_ABSOLUTE_TOLERANCE", 1e-2))
 
@@ -113,50 +116,42 @@ class FlexV3(Contract):
         try:
             self.session = requests.Session()
 
-            requests_urls = [
-                f'{self.PRICE_SERVICE_BASE_URL}/coingecko',
-                f'{self.PRICE_SERVICE_BASE_URL}/coinpaprika',
-                f'{self.PRICE_SERVICE_BASE_URL}/coinmarketcap',
-                f'{self.PRICE_SERVICE_BASE_URL}/liquidity-pool/vwap',
-            ]
+            query_params = urlencode({
+                "price": value,
+                "tolerance": self.absolute_tolerance,
+                "validation-method": self.price_validation_method,
+                "consensus": self.price_validation_consensus
+            })
+            requests_url = f"{self.PRICE_SERVICE_BASE_URL}/validate-price?{query_params}"
 
-            with ThreadPoolExecutor(max_workers=len(requests_urls)) as executor:
-                responses = list(executor.map(self._send_request, requests_urls))
+            logger.info(f"Validating price with Price Service API: {requests_url}")
 
-            successful_responses = [response for response in responses if response is not None]
+            response = self._send_request(requests_url)
+            data = response.json()
 
             green_color = '\033[92m'
             endc_color = '\033[0m'
 
-            logger.info(f"{green_color}Price Service API responses: {[r.json()['service'] for r in successful_responses]}{endc_color}")
-
-            for response in successful_responses:
-                request_url = response.url
-                data = response.json()
-                service_name = data['service']
-                price = data['price']
-
-                is_close = math.isclose(value, price, abs_tol=self.absolute_tolerance)
-                if is_close: break
+            is_valid = data['is_valid_consensus']
 
             logger.info(f"""
                 {green_color}
-                Price Service API info:
-                Request URL: {request_url}
-                Service name: {service_name}
-                API Price: {price}
+                Price Validator Service API info:
+                Request URL: {response.url}
+                Validation method: {data['validation_method']}
+                Consensus: {data["consensus_method"]}
+                Tolerance: {data['price_tolerance']}
+                services result: {data['services']}
                 Telliot Price: {value}
-                Abs Diff: {abs(price - value)}
-                Abs tolerance: {self.absolute_tolerance}
-                Is close? {is_close}
+                Is valid consensus: {is_valid}
                 {endc_color}
             """)
-            return is_close
+            return is_valid
         except Exception as e:
-            logger.warning(f"Error validating price with Price Service API: {e}")
+            logger.warning(f"Error validating price with Price Service API: {e}, returning price as valid")
+            return True
         finally:
             self.session.close()
-            return True
 
     async def fetch_new_datapoint(self):
         try:

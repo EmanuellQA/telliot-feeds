@@ -305,6 +305,24 @@ def reporter() -> None:
 @click.option("-pwd", "--password", type=str)
 @click.option("-spwd", "--signature-password", type=str)
 @click.option("--continue-reporting-on-dispute/--stop-reporting-on-dispute", type=bool,default=False)
+@click.option(
+    "--price-validation-method",
+    "-pvm",
+    "price_validation_method",
+    help="Price validation method",
+    nargs=1,
+    type=str,
+    default="percentual_change"
+)
+@click.option(
+    "--price-validation-consensus",
+    "-pvc",
+    "price_validation_consensus",
+    help="Price validation consensus",
+    nargs=1,
+    type=str,
+    default="majority"
+)
 @click.pass_context
 @async_run
 async def report(
@@ -341,7 +359,9 @@ async def report(
     use_gas_api: bool,
     force_nonce: Optional[int],
     tx_timeout: int,
-    continue_reporting_on_dispute: bool
+    continue_reporting_on_dispute: bool,
+    price_validation_method: str,
+    price_validation_consensus: str,
 ) -> None:
     """Report values to Fetch oracle"""
     ctx.obj["ACCOUNT_NAME"] = account_str
@@ -510,6 +530,8 @@ async def report(
             reporter = FetchFlexReporter(**{
                 **common_reporter_kwargs,
                 "continue_reporting_on_dispute": continue_reporting_on_dispute,
+                "price_validation_method": price_validation_method,
+                "price_validation_consensus": price_validation_consensus,
                 "use_estimate_fee": use_estimate_fee,
                 "use_gas_api": use_gas_api,
                 "force_nonce": force_nonce,
