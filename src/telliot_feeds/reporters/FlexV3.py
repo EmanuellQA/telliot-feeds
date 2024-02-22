@@ -1,8 +1,7 @@
 import os
 from collections.abc import Callable
-import logging
-from logging.handlers import RotatingFileHandler
-import math
+
+from urllib.parse import urlencode
 
 import requests
 from web3 import Web3
@@ -80,7 +79,7 @@ class Contract:
         return self.w3.eth.contract(address=address, abi=self.ABI)
 
 class FlexV3(Contract):
-    COINGECKO_BASE_URL = os.getenv('COINGECKO_MOCK_URL', 'https://api.coingecko.com/api/v3')
+    PRICE_SERVICE_BASE_URL = os.getenv('PRICE_SERVICE_BASE_URL', 'http://127.0.0.1:3333')
 
     def __init__(
       self,
@@ -89,7 +88,9 @@ class FlexV3(Contract):
       account: ChainedAccount,
       chain_id: int, 
       get_fees: Callable,
-      oracle: Contract
+      oracle: Contract,
+      price_validation_method: str,
+      price_validation_consensus: str
     ):
         super().__init__(endpoint.url)
         self.datafeed = datafeed
@@ -98,25 +99,59 @@ class FlexV3(Contract):
         self.chain_id = chain_id
         self.get_fees = get_fees
         self.oracle = oracle
+        self.price_validation_method = price_validation_method
+        self.price_validation_consensus = price_validation_consensus
         self.flexv3_contract = self._get_contract(self.oracle.address)
         self.absolute_tolerance = float(os.getenv("PRICE_DIFF_ABSOLUTE_TOLERANCE", 1e-2))
 
-    def _is_close_to_coingecko_pls_price(self, value: float):
+    def _send_request(self, url: str) -> requests.Response:
         try:
-            r = requests.get(f'{self.COINGECKO_BASE_URL}/simple/price?ids=pulsechain&vs_currencies=usd')
-            data = r.json()
-            coingecko_pls_price = data['pulsechain']['usd']
+            response = self.session.get(url)
+            response.raise_for_status()
+            return response
+        except requests.RequestException as e:
+            logger.error(f"Error fetching data from {url}: {e}\n{e.response.text}")
+
+    def _is_price_valid(self, value: float):
+        try:
+            self.session = requests.Session()
+
+            query_params = urlencode({
+                "price": value,
+                "tolerance": self.absolute_tolerance,
+                "validation-method": self.price_validation_method,
+                "consensus": self.price_validation_consensus
+            })
+            requests_url = f"{self.PRICE_SERVICE_BASE_URL}/validate-price?{query_params}"
+
+            logger.info(f"Validating price with Price Service API: {requests_url}")
+
+            response = self._send_request(requests_url)
+            data = response.json()
+
+            green_color = '\033[92m'
+            endc_color = '\033[0m'
+
+            is_valid = data['is_valid_consensus']
+
             logger.info(f"""
-                Coingecko pls price: {coingecko_pls_price}
-                Datafeed value: {value}
-                Abs Diff: {abs(value - coingecko_pls_price)}
-                Abs tolereance: {self.absolute_tolerance}
-                Is close? {math.isclose(value, coingecko_pls_price, abs_tol=self.absolute_tolerance)}
+                {green_color}
+                Price Validator Service API info:
+                Request URL: {response.url}
+                Validation method: {data['validation_method']}
+                Consensus: {data["consensus_method"]}
+                Tolerance: {data['price_tolerance']}
+                services result: {data['services']}
+                Telliot Price: {value}
+                Is valid consensus: {is_valid}
+                {endc_color}
             """)
-            return math.isclose(value, coingecko_pls_price, abs_tol=self.absolute_tolerance)
+            return is_valid
         except Exception as e:
-            logger.warning(f"Error fetching coingecko pls price: {e}")
+            logger.warning(f"Error validating price with Price Service API: {e}, returning price as valid")
             return True
+        finally:
+            self.session.close()
 
     async def fetch_new_datapoint(self):
         try:
@@ -205,8 +240,8 @@ class FlexV3(Contract):
 
           value, value_enconded = await self.fetch_new_datapoint()
 
-          if not self._is_close_to_coingecko_pls_price(value):
-            raise Exception(f"Datafeed value {value} is not close to coingecko pls price")
+          if not self._is_price_valid(value):
+            raise Exception(f"Datafeed value {value} is not close to price service api pls price")
 
           tx_receipt = self.submitValue(
               value=value_enconded,
