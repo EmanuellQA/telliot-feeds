@@ -128,7 +128,7 @@ class PulsechainPulseXService(WebPriceService):
                 Abs Diff:
                 abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
 
-                Percentual Diffs (for 1.5%):
+                Percentage Diffs (for 1.5%):
                 abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
                 abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
                 abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
@@ -150,7 +150,7 @@ class PulsechainPulseXService(WebPriceService):
                 Abs Diff:
                 abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
 
-                Percentual Diffs (for 1.5%):
+                Percentage Diffs (for 1.5%):
                 abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
                 abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
                 abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}

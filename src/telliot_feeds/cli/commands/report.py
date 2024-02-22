@@ -312,7 +312,7 @@ def reporter() -> None:
     help="Price validation method",
     nargs=1,
     type=str,
-    default="percentual_change"
+    default="percentage_change"
 )
 @click.option(
     "--price-validation-consensus",

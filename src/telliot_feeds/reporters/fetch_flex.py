@@ -58,7 +58,7 @@ class FetchFlexReporter(IntervalReporter):
         check_rewards: bool = True,
         use_random_feeds: bool = False,
         continue_reporting_on_dispute: bool = False,
-        price_validation_method: str = "percentual_change",
+        price_validation_method: str = "percentage_change",
         price_validation_consensus: str = "majority",
         use_estimate_fee: bool = False,
         use_gas_api: bool = False,
