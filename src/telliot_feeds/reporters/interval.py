@@ -683,6 +683,8 @@ class IntervalReporter:
         sync_event.set()
         logger.info("Triggered first LP sync event report")
         while True:
+            self.handle_rpc_connection_failures()
+
             logger.info("Waiting for LP sync event report trigger...")
             sync_event.wait()
             
@@ -697,6 +699,19 @@ class IntervalReporter:
 
             if submit_once: break
 
+    def handle_rpc_connection_failures(self) -> None:
+        rpc_connection_failures = 0
+        rpc_connection_failures_limit = 5
+
+        while rpc_connection_failures < rpc_connection_failures_limit:
+            if self.web3.isConnected(): return
+
+            rpc_connection_failures += 1
+            logger.warning(f"{self.web3.provider} failure {rpc_connection_failures}/{rpc_connection_failures_limit}")
+            if rpc_connection_failures == rpc_connection_failures_limit:
+                logger.error(f"{self.web3.provider} not connected, exiting")
+                raise SystemExit(1)
+
     async def report(self, report_count: Optional[int] = None) -> None:
         """Submit values to Fetch oracles on an interval."""
 
@@ -707,6 +722,8 @@ class IntervalReporter:
             await self.managed_feed_report()
         else:
             while report_count is None or report_count > 0:
+                self.handle_rpc_connection_failures()
+                    
                 online = await self.is_online()
                 if online:
                     if self.has_native_token():
