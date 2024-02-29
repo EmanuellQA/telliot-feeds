@@ -93,7 +93,7 @@ class PulsechainPulseXService(WebPriceService):
         kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "https://rpc.pulsechain.com")
         kwargs["timeout"] = 10.0
         self.debugging_price = os.getenv("DEBUGGING_PRICE", 'False').lower() in ('true', '1', 't')
-        self.absolute_tolerance = float(os.getenv("PRICE_DIFF_ABSOLUTE_TOLERANCE", 1e-2))
+        self.tolerance = float(os.getenv("PRICE_TOLERANCE", 1e-2))
         super().__init__(**kwargs)
 
     def _get_token_names(self, currency: str):
@@ -163,12 +163,14 @@ class PulsechainPulseXService(WebPriceService):
         price_service_base_url = os.getenv("PRICE_SERVICE_BASE_URL", "http://127.0.0.1:3333")
         contract_addr = addrs[currency]
 
-        request_url = f"{price_service_base_url}/liquidity-pool/{token0}/{token1}/{contract_addr}"
+        request_url = f"{price_service_base_url}/dexscreener/{token0}/{token1}/{contract_addr}"
         r = requests.get(request_url)
         data = r.json()
         price = Decimal(data['price'])
 
-        is_close = math.isclose(price, telliot_price, abs_tol=self.absolute_tolerance)
+        percentage_change = abs((telliot_price - price) / price) * 100
+        is_valid = percentage_change <= self.tolerance
+
         green_color = '\033[92m'
         endc_color = '\033[0m'
         logger.info(f"""
@@ -178,12 +180,12 @@ class PulsechainPulseXService(WebPriceService):
             LP address ({token0}-{token1}): {contract_addr}
             API Price: {price}
             Telliot Price: {telliot_price}
-            Abs Diff: {abs(price - telliot_price)}
-            Abs tolerance: {self.absolute_tolerance}
-            Is close? {is_close}
+            Percentage change: {percentage_change}
+            Tolerance: {self.tolerance}
+            Is valid? {is_valid}
             {endc_color}
         """)
-        return is_close
+        return is_valid
 
     async def get_price(self, asset: str, currency: str) -> OptionalDataPoint[float]:
         """Implement PriceServiceInterface
