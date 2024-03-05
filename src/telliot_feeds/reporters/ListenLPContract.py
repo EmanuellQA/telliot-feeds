@@ -92,6 +92,8 @@ class ListenLPContract(Contract):
         self.from_block = self.w3.eth.get_block_number()
         self.is_initialized = False
 
+        self.reorg_safe_default = int(os.getenv('REORG_SAFE_DEFAULT', 10))
+
         logger.info(f"Time limit: {self.time_limit} seconds")
         logger.info(f"Percentage change threshold: {self.percentage_change_threshold}%")
     
@@ -171,6 +173,10 @@ class ListenLPContract(Contract):
                 self.is_sync_event_handled = False
                 self.pair_handled_data = None
                 block_number = self.w3.eth.get_block_number()
+
+                if block_number < self.from_block:
+                    logger.info(f"Reorg detected, resetting from_block ({self.from_block}) to {block_number - self.reorg_safe_default}")
+                    self.from_block = block_number - self.reorg_safe_default
 
                 event_filters = [
                     {
