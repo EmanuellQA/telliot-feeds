@@ -102,7 +102,7 @@ class FlexV3(Contract):
         self.price_validation_method = price_validation_method
         self.price_validation_consensus = price_validation_consensus
         self.flexv3_contract = self._get_contract(self.oracle.address)
-        self.absolute_tolerance = float(os.getenv("PRICE_DIFF_ABSOLUTE_TOLERANCE", 1e-2))
+        self.tolerance = float(os.getenv("PRICE_TOLERANCE", 1e-2))
 
     def _send_request(self, url: str) -> requests.Response:
         try:
@@ -118,7 +118,7 @@ class FlexV3(Contract):
 
             query_params = urlencode({
                 "price": value,
-                "tolerance": self.absolute_tolerance,
+                "tolerance": self.tolerance,
                 "validation-method": self.price_validation_method,
                 "consensus": self.price_validation_consensus
             })
