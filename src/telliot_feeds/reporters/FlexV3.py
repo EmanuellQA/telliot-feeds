@@ -110,7 +110,9 @@ class FlexV3(Contract):
             response.raise_for_status()
             return response
         except requests.RequestException as e:
-            logger.error(f"Error fetching data from {url}: {e}\n{e.response.text}")
+            logger.error(f"Error fetching data from {url}: {e}")
+            if e.response is not None:
+                logger.error(f"Error response: {e.response.text}")
 
     def _is_price_valid(self, value: float):
         try:
@@ -127,6 +129,8 @@ class FlexV3(Contract):
             logger.info(f"Validating price with Price Service API: {requests_url}")
 
             response = self._send_request(requests_url)
+            if not response:
+                raise Exception(f"Could not get price validator response")
             data = response.json()
 
             green_color = '\033[92m'
