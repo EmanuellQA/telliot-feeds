@@ -113,3 +113,71 @@ class PriceAggregator(DataSource[float]):
         logger.info("Number of sources used in aggregate: {}".format(len(prices)))
 
         return datapoint
+
+@dataclass
+class PriceAggregatorApiLP(PriceAggregator):
+    source_entities: list[str] = field(default_factory=list)
+
+    print("Tests Debugging 0")
+
+    async def fetch_new_datapoint(self) -> OptionalWeightedDataPoint[float]:
+        print("Tests Debugging 1")
+        datapoints = await self.update_sources()
+        print("Tests Debugging 2")
+
+        only_prices: list[float] = []
+        prices_and_weights: list[tuple[float]] = []
+        print("Tests Debugging 3")
+        for entity_name, datapoint in zip(self.source_entities, datapoints):
+            if entity_name == "LP":
+                v = datapoint[0]
+                w = datapoint[2]
+                if v is not None and isinstance(v, float) and w is not None and isinstance(w, float):
+                    prices_and_weights.append((v, w))
+
+            if entity_name == "API":
+                v = datapoint[0]
+                if v is not None and isinstance(v, float):
+                    only_prices.append(v)
+
+        print("Tests Debugging 4")
+
+        if only_prices:
+            print("Tests Debugging 5")
+
+            logger.info(f"Running {self.algorithm} on {only_prices}")
+
+            result = self._algorithm(only_prices)
+            datapoint = (result, datetime_now_utc())
+            self.store_datapoint(datapoint)
+
+            logger.info("Feed Price: {} reported at time {}".format(datapoint[0], datapoint[1]))
+            logger.info("Number of sources used in aggregate: {}".format(len(only_prices)))
+
+            return datapoint
+        
+        print("Tests Debugging 6")
+
+        logger.warning(f"No prices API retrieved for {self}.")        
+        if not prices_and_weights:
+            logger.error(f"No prices retrieved for {self}.")
+            return None, None
+        
+        print("Tests Debugging 7")
+        
+        self._algorithm = weighted_average
+        prices = [v for v, _ in prices_and_weights]
+        weights = [w for _, w in prices_and_weights]
+        logger.info(f"Running {self.algorithm} using weights {weights}")
+        result = self._algorithm(prices, weights)
+        datapoint = (result, datetime_now_utc())
+        self.store_datapoint(datapoint)
+
+        print("Tests Debugging 8")
+
+        logger.info("Feed Price: {} reported at time {}".format(datapoint[0], datapoint[1]))
+        logger.info("Number of sources used in aggregate: {}".format(len(prices)))
+
+        print("Tests Debugging 9")
+
+        return datapoint
