@@ -55,6 +55,25 @@ class Contract:
                 ],
                 "stateMutability": "view",
                 "type": "function"
+            },
+            {
+            "inputs": [
+                {
+                "internalType": "address",
+                "name": "_reporter",
+                "type": "address"
+                }
+            ],
+            "name": "getReporterLastTimestamp",
+            "outputs": [
+                {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
             }
             ]
             """
@@ -80,6 +99,11 @@ class Contract:
         current_value: bytes = self.oracle.functions.getCurrentValue(
             queryId).call()
         return self._bytes_to_decimal(current_value)
+    
+    def get_reporter_last_timestamp(self, reporter: str) -> int:
+        report_checksum_address = self.provider.toChecksumAddress(reporter)
+        last_timestamp: int = self.oracle.functions.getReporterLastTimestamp(report_checksum_address).call()
+        return last_timestamp
 
 def _get_new_price(price: Decimal) -> Decimal:
     return (price * Decimal('1')).quantize(Decimal('1e-18'))
@@ -169,16 +193,22 @@ def _configure_telliot_env_with_mock_price(env_config: list[str] = None) -> list
 
     return prev_env_config
 
-def submit_report_with_telliot(account_name: str, stake_amount: str) -> str:
+def submit_report_with_telliot(account_name: str, stake_amount: str, managed_feeds: bool = False) -> str:
     report_hash = ""
     try:
         report = f'telliot report -a {account_name} -ncr -qt pls-usd-spot --fetch-flex --submit-once -s {stake_amount} -mf 80000 -pf 1.5 -gm 20'
+
+        if managed_feeds:
+            report = f'telliot report -a {account_name} -ncr -qt validated-feed-usd-spot --fetch-flex --submit-once -mf 80000 -pf 1.5 -gm 20'
+
         logger.info(f"Submitting report: {report}")
         report_process = pexpect.spawn(report, timeout=120)
         report_process.logfile = sys.stdout.buffer
         report_process.expect("\w+\r\n")
         report_process.expect("\w+\r\n")
         report_process.expect("\w+\r\n")
+        if managed_feeds:
+            report_process.expect("\w+\r\n")
         report_process.sendline('y')
         report_process.expect("\w+\r\n")
         report_process.sendline('')
@@ -217,6 +247,44 @@ def write_price_to_file(price: Decimal, hash: str) -> None:
     with open(path, 'w') as file:
       file.write(f'{{"current_price": {price}, "hash": "{hash}"}}')
     logger.info(f"Current price written to file {path}")
+
+def write_managed_feeds_report_to_file(report_hash: str, queryId: str, timestamp: str) -> None:
+    path = Path(__file__).parent.absolute() / 'managed_feeds_report.json'
+    with open(path, 'w') as file:
+      file.write(f'{{"report_hash": "{report_hash}", "queryId": "{queryId}", "timestamp": "{timestamp}"}}')
+    logger.info(f"Managed feeds report written to file {path}")
+
+def handle_managed_feeds_mode(oracle_address: str, provider_url: str, account_name: str) -> None:
+    report_hash = submit_report_with_telliot(account_name=account_name, stake_amount="None", managed_feeds=True)
+
+    if not report_hash:
+        logger.error("Submit managed-feeds report with telliot error")
+    assert report_hash, "Submit managed-feeds report with telliot error"
+
+    contract = Contract.create(
+        oracle_address=oracle_address,
+        provider_url=provider_url
+    )
+
+    account_find = f'telliot account find --name {account_name}'
+    account_process = pexpect.spawn(account_find, timeout=120)
+    account_process.logfile = sys.stdout.buffer
+    account_process.expect(pexpect.EOF)
+
+    account_log = account_process.before.decode('utf-8')
+
+    account_address = re.search(
+        fr'Account name: {account_name}, address: (0x\w+), chain IDs: \[\d+\]',
+        account_log
+    )
+    account_address = account_address.group(1)
+    logger.info(f"Account address: {account_address}")
+
+    lastTimestamp = contract.get_reporter_last_timestamp(account_address)
+
+    managed_feed_queryId = "0x1f984b2c7cbcb7f024e5bdd873d8ca5d64e8696ff219ebede2374bf3217c9b75"
+
+    write_managed_feeds_report_to_file(report_hash, managed_feed_queryId, lastTimestamp)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -261,6 +329,16 @@ def main():
         'Default is https://rpc.v4.testnet.pulsechain.com'),
         default='https://rpc.v4.testnet.pulsechain.com'
     )
+    parser.add_argument(
+        '-m',
+        '--managed-feeds',
+        type=bool,
+        required=False,
+        help=('Managed feeds mode to use for the Oracle contract.\n'
+        'Default is False'),
+        default=False,
+        action=argparse.BooleanOptionalAction
+    )
 
     args = parser.parse_args()
 
@@ -268,6 +346,7 @@ def main():
     stake_amount = args.stake
     chain_id = args.chain_id
     provider_url = args.provider_url
+    managed_feeds_mode = args.managed_feeds
 
     contract = contract_directory.find(chain_id=chain_id, name="fetchflex-oracle")[0]
     oracle_address = contract.address[chain_id]
@@ -279,7 +358,13 @@ def main():
         chain id: {chain_id}
         provider url: {provider_url}
         oracle address: {oracle_address}
+        managed feeds mode: {managed_feeds_mode}
     """)
+
+    if managed_feeds_mode:
+        logger.info("Managed feeds mode is enabled")
+        handle_managed_feeds_mode(oracle_address, provider_url, account_name)
+        return
 
     mock_price_env = configure_mock_price_api_env('0.000062')
     mock_price_ps = initialize_mock_price_api()
