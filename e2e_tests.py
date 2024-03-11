@@ -199,7 +199,7 @@ def submit_report_with_telliot(account_name: str, stake_amount: str, managed_fee
         report = f'telliot report -a {account_name} -ncr -qt pls-usd-spot --fetch-flex --submit-once -s {stake_amount} -mf 80000 -pf 1.5 -gm 20'
 
         if managed_feeds:
-            report = f'telliot report -a {account_name} -ncr -qt validated-feed-usd-spot --fetch-flex --submit-once -mf 80000 -pf 1.5 -gm 20'
+            report = f'telliot report -a {account_name} -ncr -qt validated-feed-usd-spot-api --fetch-flex --submit-once -mf 80000 -pf 1.5 -gm 20'
 
         logger.info(f"Submitting report: {report}")
         report_process = pexpect.spawn(report, timeout=120)
@@ -362,9 +362,18 @@ def main():
     """)
 
     if managed_feeds_mode:
-        logger.info("Managed feeds mode is enabled")
-        handle_managed_feeds_mode(oracle_address, provider_url, account_name)
-        return
+        try:
+            logger.info("Managed feeds mode is enabled")
+            mock_price_env = configure_mock_price_api_env('0.000062')
+            mock_price_ps = initialize_mock_price_api()
+            prev_env_config = _configure_telliot_env_with_mock_price()
+            handle_managed_feeds_mode(oracle_address, provider_url, account_name)
+            _configure_telliot_env_with_mock_price(prev_env_config)
+            os.killpg(os.getpgid(mock_price_ps.pid), signal.SIGTERM)
+            return
+        except Exception as e:
+            logger.error("Managed feeds report error:")
+            logger.error(e)
 
     mock_price_env = configure_mock_price_api_env('0.000062')
     mock_price_ps = initialize_mock_price_api()
