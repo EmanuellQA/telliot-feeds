@@ -9,6 +9,7 @@ from argparse import RawTextHelpFormatter
 from pathlib import Path
 from decimal import *
 from web3 import Web3
+from eth_abi import encode_abi
 from telliot_core.directory import contract_directory
 import re
 import time
@@ -73,6 +74,47 @@ class Contract:
                 }
             ],
             "stateMutability": "view",
+            "type": "function"
+            },
+            {
+            "inputs": [
+                {
+                "internalType": "bytes32",
+                "name": "_queryId",
+                "type": "bytes32"
+                },
+                {
+                "internalType": "address",
+                "name": "_manager",
+                "type": "address"
+                },
+                {
+                "internalType": "bytes",
+                "name": "_config",
+                "type": "bytes"
+                }
+            ],
+            "name": "setupManagedQuery",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+            },
+            {
+            "inputs": [
+                {
+                "internalType": "bytes32",
+                "name": "_queryId",
+                "type": "bytes32"
+                },
+                {
+                "internalType": "address",
+                "name": "_reporter",
+                "type": "address"
+                }
+            ],
+            "name": "addReporter",
+            "outputs": [],
+            "stateMutability": "nonpayable",
             "type": "function"
             }
             ]
@@ -254,17 +296,36 @@ def write_managed_feeds_report_to_file(report_hash: str, queryId: str, timestamp
       file.write(f'{{"report_hash": "{report_hash}", "queryId": "{queryId}", "timestamp": "{timestamp}"}}')
     logger.info(f"Managed feeds report written to file {path}")
 
+def _setup_managed_query(queryId: str, address: str, requiresStaking: bool, contract: Contract) -> None:
+    config = encode_abi(['bool'], [requiresStaking])
+
+    address = contract.provider.toChecksumAddress(address)
+    
+    try:
+        contract.oracle.functions.setupManagedQuery(
+            Web3.toBytes(hexstr=queryId),
+            address,
+            config
+        ).transact({'from': address})
+        logger.info(f"Managed query {queryId} setup OK")
+    except Exception as e:
+        logger.error(f"Managed query {queryId} setup error:")
+        logger.error(e)
+
+def _add_reporter(queryId: str, address: str, contract: Contract) -> None:
+    address = Web3.toChecksumAddress(address)
+    try:
+        contract.oracle.functions.addReporter(
+            Web3.toBytes(hexstr=queryId),
+            address
+        ).transact({'from': address})
+        logger.info(f"Reporter {address} added to query {queryId} OK")
+    except Exception as e:
+        logger.error(f"Reporter {address} added to query {queryId} error:")
+        logger.error(e)
+
 def handle_managed_feeds_mode(oracle_address: str, provider_url: str, account_name: str) -> None:
-    report_hash = submit_report_with_telliot(account_name=account_name, stake_amount="None", managed_feeds=True)
-
-    if not report_hash:
-        logger.error("Submit managed-feeds report with telliot error")
-    assert report_hash, "Submit managed-feeds report with telliot error"
-
-    contract = Contract.create(
-        oracle_address=oracle_address,
-        provider_url=provider_url
-    )
+    managed_feed_queryId = "0x1f984b2c7cbcb7f024e5bdd873d8ca5d64e8696ff219ebede2374bf3217c9b75"
 
     account_find = f'telliot account find --name {account_name}'
     account_process = pexpect.spawn(account_find, timeout=120)
@@ -280,9 +341,31 @@ def handle_managed_feeds_mode(oracle_address: str, provider_url: str, account_na
     account_address = account_address.group(1)
     logger.info(f"Account address: {account_address}")
 
-    lastTimestamp = contract.get_reporter_last_timestamp(account_address)
+    contract = Contract.create(
+        oracle_address=oracle_address,
+        provider_url=provider_url
+    )
 
-    managed_feed_queryId = "0x1f984b2c7cbcb7f024e5bdd873d8ca5d64e8696ff219ebede2374bf3217c9b75"
+    _setup_managed_query(
+        queryId=managed_feed_queryId,
+        address=account_address,
+        requiresStaking=False,
+        contract=contract
+    )
+
+    _add_reporter(
+        queryId=managed_feed_queryId,
+        address=account_address,
+        contract=contract
+    )
+
+    report_hash = submit_report_with_telliot(account_name=account_name, stake_amount="None", managed_feeds=True)
+
+    if not report_hash:
+        logger.error("Submit managed-feeds report with telliot error")
+    assert report_hash, "Submit managed-feeds report with telliot error"
+
+    lastTimestamp = contract.get_reporter_last_timestamp(account_address)
 
     write_managed_feeds_report_to_file(report_hash, managed_feed_queryId, lastTimestamp)
 
@@ -369,11 +452,12 @@ def main():
             prev_env_config = _configure_telliot_env_with_mock_price()
             handle_managed_feeds_mode(oracle_address, provider_url, account_name)
             _configure_telliot_env_with_mock_price(prev_env_config)
-            os.killpg(os.getpgid(mock_price_ps.pid), signal.SIGTERM)
-            return
         except Exception as e:
             logger.error("Managed feeds report error:")
             logger.error(e)
+        finally:
+            os.killpg(os.getpgid(mock_price_ps.pid), signal.SIGTERM)
+            return
 
     mock_price_env = configure_mock_price_api_env('0.000062')
     mock_price_ps = initialize_mock_price_api()
