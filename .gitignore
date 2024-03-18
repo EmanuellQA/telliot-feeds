@@ -176,3 +176,4 @@ reported_pools.pickle
 #virtual env
 tenv
 current_price.json
+managed_feeds_report.json
