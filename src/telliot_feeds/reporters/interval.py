@@ -3,6 +3,7 @@ Example of a subclassed Reporter.
 """
 import asyncio
 import time
+import threading
 from typing import Any
 from typing import Optional
 from typing import Tuple
@@ -30,7 +31,8 @@ from telliot_feeds.utils.reporter_utils import has_native_token_funds
 from telliot_feeds.utils.reporter_utils import is_online
 from telliot_feeds.utils.reporter_utils import fetch_suggested_report
 from telliot_feeds.utils.reporter_utils import tkn_symbol
-
+from telliot_feeds.reporters.ListenLPContract import ListenLPContract
+from telliot_feeds.reporters.FlexV3 import FlexV3
 
 logger = get_logger(__name__)
 
@@ -649,20 +651,88 @@ class IntervalReporter:
             logger.error(status)
 
         return tx_receipt, status
+    
+    async def managed_feed_report(self, submit_once: bool = False) -> None:
+        logger.info("Using managed feed to submit values")
+
+        datafeed = await self.fetch_datafeed()
+
+        current_report_time = { "timestamp": time.time() }
+        sync_event = threading.Event()
+        time_limit_event = threading.Event()
+
+        flexV3 = FlexV3(
+                datafeed=datafeed,
+                endpoint=self.endpoint,
+                account=self.account,
+                chain_id=self.chain_id,
+                get_fees=self.get_fees,
+                oracle=self.oracle,
+                price_validation_method=self.price_validation_method,
+                price_validation_consensus=self.price_validation_consensus)
+        listen_lp_contract = ListenLPContract(
+            sync_event=sync_event,
+            time_limit_event=time_limit_event,
+            current_report_time=current_report_time,
+            fetch_new_datapoint=flexV3.fetch_new_datapoint
+        )
+        await listen_lp_contract.initialize_price()
+
+        listen_lp_contract.listen_sync_events()
+
+        sync_event.set()
+        logger.info("Triggered first LP sync event report")
+        while True:
+            self.handle_rpc_connection_failures()
+
+            logger.info("Waiting for LP sync event report trigger...")
+            sync_event.wait()
+            
+            if time_limit_event.is_set():
+                logger.info("Time limit reached! Submitting price")
+
+            logger.info("Report triggered")
+            await flexV3.callSubmitValue()
+            current_report_time["timestamp"] = time.time()
+            sync_event.clear()
+            time_limit_event.clear()
+
+            if submit_once: break
+
+    def handle_rpc_connection_failures(self) -> None:
+        rpc_connection_failures = 0
+        rpc_connection_failures_limit = 5
+
+        while rpc_connection_failures < rpc_connection_failures_limit:
+            if self.web3.isConnected(): return
+
+            rpc_connection_failures += 1
+            logger.warning(f"{self.web3.provider} failure {rpc_connection_failures}/{rpc_connection_failures_limit}")
+            if rpc_connection_failures == rpc_connection_failures_limit:
+                logger.error(f"{self.web3.provider} not connected, exiting")
+                raise SystemExit(1)
 
     async def report(self, report_count: Optional[int] = None) -> None:
         """Submit values to Fetch oracles on an interval."""
 
-        while report_count is None or report_count > 0:
-            online = await self.is_online()
-            if online:
-                if self.has_native_token():
-                    _, _ = await self.report_once()
-            else:
-                logger.warning("Unable to connect to the internet!")
+        datafeed = await self.fetch_datafeed()
+        asset = datafeed.query.asset
 
-            logger.info(f"Sleeping for {self.wait_period} seconds")
-            await asyncio.sleep(self.wait_period)
+        if asset == "validated-feed":
+            await self.managed_feed_report()
+        else:
+            while report_count is None or report_count > 0:
+                self.handle_rpc_connection_failures()
+                    
+                online = await self.is_online()
+                if online:
+                    if self.has_native_token():
+                        _, _ = await self.report_once()
+                else:
+                    logger.warning("Unable to connect to the internet!")
 
-            if report_count is not None:
-                report_count -= 1
+                logger.info(f"Sleeping for {self.wait_period} seconds")
+                await asyncio.sleep(self.wait_period)
+
+                if report_count is not None:
+                    report_count -= 1
