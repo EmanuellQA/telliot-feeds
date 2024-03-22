@@ -165,6 +165,11 @@ class PulsechainPulseXService(WebPriceService):
 
         request_url = f"{price_service_base_url}/dexscreener/{token0}/{token1}/{contract_addr}"
         r = requests.get(request_url)
+
+        if not r.ok:
+            logger.error(f"Error fetching data from {request_url}: {r.text}. Returning price as valid")
+            return True
+
         data = r.json()
         price = Decimal(data['price'])
 
