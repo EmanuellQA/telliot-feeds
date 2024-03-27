@@ -511,7 +511,6 @@ def main():
         logger.error(e)
     finally:
         os.killpg(os.getpgid(mock_price_ps.pid), signal.SIGTERM)
-        switch_mock_price_git_branch('dev')
 
 if __name__ == "__main__":
     main()
