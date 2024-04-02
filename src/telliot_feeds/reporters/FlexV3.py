@@ -90,7 +90,8 @@ class FlexV3(Contract):
       get_fees: Callable,
       oracle: Contract,
       price_validation_method: str,
-      price_validation_consensus: str
+      price_validation_consensus: str,
+      continue_reporting_on_validator_unreachable: bool
     ):
         super().__init__(endpoint.url)
         self.datafeed = datafeed
@@ -101,6 +102,7 @@ class FlexV3(Contract):
         self.oracle = oracle
         self.price_validation_method = price_validation_method
         self.price_validation_consensus = price_validation_consensus
+        self.continue_reporting_on_validator_unreachable = continue_reporting_on_validator_unreachable
         self.flexv3_contract = self._get_contract(self.oracle.address)
         self.tolerance = float(os.getenv("PRICE_TOLERANCE", 1e-2))
 
@@ -152,8 +154,14 @@ class FlexV3(Contract):
             """)
             return is_valid
         except Exception as e:
-            logger.warning(f"Error validating price with Price Service API: {e}, returning price as valid")
-            return True
+            logger.info(f"Continue reporting on validator unreachable: {self.continue_reporting_on_validator_unreachable}")
+
+            if self.continue_reporting_on_validator_unreachable:
+                logger.warning(f"Error validating price with Price Service API: {e}, returning price as valid")
+                return True
+            
+            logger.error(f"Error validating price with Price Service API: {e}, stopping reporting")
+            raise Exception(f"Error validating price with Price Service API: {e}")
         finally:
             self.session.close()
 

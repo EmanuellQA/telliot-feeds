@@ -669,7 +669,8 @@ class IntervalReporter:
                 get_fees=self.get_fees,
                 oracle=self.oracle,
                 price_validation_method=self.price_validation_method,
-                price_validation_consensus=self.price_validation_consensus)
+                price_validation_consensus=self.price_validation_consensus,
+                continue_reporting_on_validator_unreachable=self.continue_reporting_on_validator_unreachable)
         listen_lp_contract = ListenLPContract(
             sync_event=sync_event,
             time_limit_event=time_limit_event,
