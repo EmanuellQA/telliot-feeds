@@ -161,7 +161,7 @@ class FlexV3(Contract):
                 return True
             
             logger.error(f"Error validating price with Price Service API: {e}, stopping reporting")
-            raise Exception(f"Error validating price with Price Service API: {e}")
+            raise SystemExit(1)
         finally:
             self.session.close()
 
