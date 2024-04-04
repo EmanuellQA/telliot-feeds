@@ -323,6 +323,11 @@ def reporter() -> None:
     type=str,
     default="majority"
 )
+@click.option(
+    "--continue-reporting-on-validator-unreachable/--stop-reporting-on-validator-unreachable",
+    type=bool,
+    default=False
+)
 @click.pass_context
 @async_run
 async def report(
@@ -362,6 +367,7 @@ async def report(
     continue_reporting_on_dispute: bool,
     price_validation_method: str,
     price_validation_consensus: str,
+    continue_reporting_on_validator_unreachable: bool,
 ) -> None:
     """Report values to Fetch oracle"""
     ctx.obj["ACCOUNT_NAME"] = account_str
@@ -532,6 +538,7 @@ async def report(
                 "continue_reporting_on_dispute": continue_reporting_on_dispute,
                 "price_validation_method": price_validation_method,
                 "price_validation_consensus": price_validation_consensus,
+                "continue_reporting_on_validator_unreachable": continue_reporting_on_validator_unreachable,
                 "use_estimate_fee": use_estimate_fee,
                 "use_gas_api": use_gas_api,
                 "force_nonce": force_nonce,
