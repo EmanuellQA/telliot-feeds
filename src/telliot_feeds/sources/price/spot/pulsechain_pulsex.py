@@ -94,7 +94,6 @@ class PulsechainPulseXService(WebPriceService):
         kwargs["timeout"] = 10.0
         self.debugging_price = os.getenv("DEBUGGING_PRICE", 'False').lower() in ('true', '1', 't')
         self.tolerance = float(os.getenv("PRICE_TOLERANCE", 1e-2))
-        logger.info(f"PulsechainPulseXService price tolerance: {self.tolerance} ({self.tolerance * 100}%)")
         super().__init__(**kwargs)
 
     def _get_token_names(self, currency: str):
