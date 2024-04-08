@@ -154,11 +154,11 @@ class ListenLPContract(Contract):
         percentage_change = self._get_percentage_change(self.previous_value, value)
         
         if percentage_change >= self.percentage_change_threshold * 100:
-            logger.info(f"Trigerring report - Percentage change threshold reached ({percentage_change:.2f}%)")
+            logger.info(f"Trigerring report - Percentage change threshold reached ({percentage_change:.4f}%)")
             self.previous_value = value
             self.sync_event.set()
         else:
-            logger.info(f"Not triggering report - Percentage change threshold not reached ({percentage_change:.2f}%)")
+            logger.info(f"Not triggering report - Percentage change threshold not reached ({percentage_change:.4f}%)")
         
         self.is_sync_event_handled = True
         self.pair_handled_data = {
