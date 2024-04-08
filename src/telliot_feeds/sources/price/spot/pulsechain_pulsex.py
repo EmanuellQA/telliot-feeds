@@ -94,6 +94,7 @@ class PulsechainPulseXService(WebPriceService):
         kwargs["timeout"] = 10.0
         self.debugging_price = os.getenv("DEBUGGING_PRICE", 'False').lower() in ('true', '1', 't')
         self.tolerance = float(os.getenv("PRICE_TOLERANCE", 1e-2))
+        logger.info(f"PulsechainPulseXService price tolerance: {self.tolerance} ({self.tolerance * 100}%)")
         super().__init__(**kwargs)
 
     def _get_token_names(self, currency: str):
@@ -174,7 +175,7 @@ class PulsechainPulseXService(WebPriceService):
         price = Decimal(data['price'])
 
         percentage_change = abs((telliot_price - price) / price) * 100
-        is_valid = percentage_change <= self.tolerance
+        is_valid = percentage_change <= self.tolerance * 100
 
         green_color = '\033[92m'
         endc_color = '\033[0m'
@@ -186,7 +187,7 @@ class PulsechainPulseXService(WebPriceService):
             API Price: {price}
             Telliot Price: {telliot_price}
             Percentage change: {percentage_change}
-            Tolerance: {self.tolerance}
+            Tolerance: {self.tolerance * 100}%
             Is valid? {is_valid}
             {endc_color}
         """)
