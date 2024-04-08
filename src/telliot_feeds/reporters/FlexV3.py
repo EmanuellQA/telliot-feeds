@@ -141,13 +141,18 @@ class FlexV3(Contract):
 
             is_valid = data['is_valid_consensus']
 
+            if "percentage" in data['validation_method']:
+                data['services'] = [
+                    {**service, 'result': f"{service['result']}%"} for service in data['services']
+                ]
+
             logger.info(f"""
                 {green_color}
                 Price Validator Service API info:
                 Request URL: {response.url}
                 Validation method: {data['validation_method']}
                 Consensus: {data["consensus_method"]}
-                Tolerance: {data['price_tolerance']}
+                Tolerance: {data['price_tolerance']}%
                 services result: {data['services']}
                 Telliot Price: {value}
                 Is valid consensus: {is_valid}

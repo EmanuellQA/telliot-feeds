@@ -185,7 +185,7 @@ class PulsechainPulseXService(WebPriceService):
             LP address ({token0}-{token1}): {contract_addr}
             API Price: {price}
             Telliot Price: {telliot_price}
-            Percentage change: {percentage_change}
+            Percentage change: {percentage_change}%
             Tolerance: {self.tolerance * 100}%
             Is valid? {is_valid}
             {endc_color}
