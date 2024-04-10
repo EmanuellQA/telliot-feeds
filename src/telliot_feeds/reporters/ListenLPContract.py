@@ -87,7 +87,7 @@ class ListenLPContract(Contract):
         self.time_limit_event = time_limit_event
         self.current_report_time = current_report_time
         self.time_limit = int(os.getenv('REPORT_TIME_LIMIT', 3600))
-        self.percentage_change_threshold = float(os.getenv('PERCENTAGE_CHANGE_THRESHOLD', 0.5))
+        self.percentage_change_threshold = float(os.getenv('PERCENTAGE_CHANGE_THRESHOLD', 0.005))
         self.fetch_new_datapoint = fetch_new_datapoint
         self.from_block = self.w3.eth.get_block_number()
         self.is_initialized = False
@@ -95,7 +95,7 @@ class ListenLPContract(Contract):
         self.reorg_safe_default = int(os.getenv('REORG_SAFE_DEFAULT', 10))
 
         logger.info(f"Time limit: {self.time_limit} seconds")
-        logger.info(f"Percentage change threshold: {self.percentage_change_threshold}%")
+        logger.info(f"ListenLPContract percentage change threshold: {self.percentage_change_threshold} ({self.percentage_change_threshold * 100}%)")
     
     async def initialize_price(self):
         try:
@@ -153,12 +153,12 @@ class ListenLPContract(Contract):
         value, _ = await self.fetch_new_datapoint()
         percentage_change = self._get_percentage_change(self.previous_value, value)
         
-        if percentage_change >= self.percentage_change_threshold:
-            logger.info(f"Trigerring report - Percentage change threshold reached ({percentage_change:.2f}%)")
+        if percentage_change >= self.percentage_change_threshold * 100:
+            logger.info(f"Triggering report - Percentage change threshold reached ({percentage_change:.4f}%)")
             self.previous_value = value
             self.sync_event.set()
         else:
-            logger.info(f"Not triggering report - Percentage change threshold not reached ({percentage_change:.2f}%)")
+            logger.info(f"Not triggering report - Percentage change threshold not reached ({percentage_change:.4f}%)")
         
         self.is_sync_event_handled = True
         self.pair_handled_data = {

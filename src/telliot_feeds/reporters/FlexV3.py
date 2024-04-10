@@ -105,6 +105,7 @@ class FlexV3(Contract):
         self.continue_reporting_on_validator_unreachable = continue_reporting_on_validator_unreachable
         self.flexv3_contract = self._get_contract(self.oracle.address)
         self.tolerance = float(os.getenv("PRICE_TOLERANCE", 1e-2))
+        logger.info(f"FlexV3 price tolerance: {self.tolerance} ({self.tolerance * 100}%)")
 
     def _send_request(self, url: str) -> requests.Response:
         try:
@@ -122,7 +123,7 @@ class FlexV3(Contract):
 
             query_params = urlencode({
                 "price": value,
-                "tolerance": self.tolerance,
+                "tolerance": self.tolerance * 100,
                 "validation-method": self.price_validation_method,
                 "consensus": self.price_validation_consensus
             })
@@ -140,13 +141,18 @@ class FlexV3(Contract):
 
             is_valid = data['is_valid_consensus']
 
+            if "percentage" in data['validation_method']:
+                data['services'] = [
+                    {**service, 'result': f"{service['result']}%"} for service in data['services']
+                ]
+
             logger.info(f"""
                 {green_color}
                 Price Validator Service API info:
                 Request URL: {response.url}
                 Validation method: {data['validation_method']}
                 Consensus: {data["consensus_method"]}
-                Tolerance: {data['price_tolerance']}
+                Tolerance: {data['price_tolerance']}%
                 services result: {data['services']}
                 Telliot Price: {value}
                 Is valid consensus: {is_valid}

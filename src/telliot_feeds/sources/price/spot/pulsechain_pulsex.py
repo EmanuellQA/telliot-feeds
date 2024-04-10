@@ -174,7 +174,7 @@ class PulsechainPulseXService(WebPriceService):
         price = Decimal(data['price'])
 
         percentage_change = abs((telliot_price - price) / price) * 100
-        is_valid = percentage_change <= self.tolerance
+        is_valid = percentage_change <= self.tolerance * 100
 
         green_color = '\033[92m'
         endc_color = '\033[0m'
@@ -185,8 +185,8 @@ class PulsechainPulseXService(WebPriceService):
             LP address ({token0}-{token1}): {contract_addr}
             API Price: {price}
             Telliot Price: {telliot_price}
-            Percentage change: {percentage_change}
-            Tolerance: {self.tolerance}
+            Percentage change: {percentage_change}%
+            Tolerance: {self.tolerance * 100}%
             Is valid? {is_valid}
             {endc_color}
         """)

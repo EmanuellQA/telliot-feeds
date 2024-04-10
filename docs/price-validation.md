@@ -26,7 +26,7 @@ The default price validation method is the `percentage_change` and the default c
 
 $\frac{|0.00014 - 0.00013122|}{0.00013122} * 100 = 6.691053193110791$
 
-If the percentage result of 6.691053193110791 is within the `PRICE_TOLERANCE` tolerance the price is evaluated as valid. For instance, if the setup was `PRICE_TOLERANCE="7"` the price would be valid, but if it was less than 6.69 it would not be valid.
+If the percentage result of 6.691053193110791 is within the `PRICE_TOLERANCE` tolerance the price is evaluated as valid. For instance, if the setup was `PRICE_TOLERANCE="0.07"` (7%) the price would be valid, but if it was less than 6.69 it would not be valid.
 
 A log showing this validation information retrieved from the price service is presented in Telliot, in the following example the price validator is running on localhost:
 
@@ -41,7 +41,7 @@ Telliot Price: 0.00013189637369191059
 Is valid consensus: False
 ```
 
-the `tolerance=0.104` comes from the `PRICE_TOLERANCE="0.104"` `telliot-feeds/.env` variable, the validation method as percentage_change comes from `-pvm percentage_change` and the consensus method from the `-pvc majority` variable.
+the `tolerance=0.104` comes from the `PRICE_TOLERANCE="0.00104"` (0.104%) `telliot-feeds/.env` variable, the validation method as percentage_change comes from `-pvm percentage_change` and the consensus method from the `-pvc majority` variable.
 
 The example above shows that using a tolerance of 0.104 for percentage change it's too precise, a percentage of 5% would cause the Coingecko service to evaluate as valid (since 1.4301070981910242 is less than or equal to 5), the Coinpaprika and the VWAP as well, only the Coinmarketcap service would tell that the price of 0.00013189637369191059 submitted from Telliot is not valid, and the consensus majority would evaluate as a valid price. Note that if we had chosen the `-pvc any` the consensus in the example above would be valid, since it needs at least one and the VWAP service evaluates as a valid price.
 
