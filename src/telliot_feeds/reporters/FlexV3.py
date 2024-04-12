@@ -152,7 +152,7 @@ class FlexV3(Contract):
                 Request URL: {response.url}
                 Validation method: {data['validation_method']}
                 Consensus: {data["consensus_method"]}
-                Tolerance: {data['price_tolerance']}%
+                Tolerance: {data['price_tolerance']}{'%' if 'percentage' in data['validation_method'] else ''}
                 services result: {data['services']}
                 Telliot Price: {value}
                 Is valid consensus: {is_valid}

@@ -173,20 +173,34 @@ class PulsechainPulseXService(WebPriceService):
         data = r.json()
         price = Decimal(data['price'])
 
-        percentage_change = abs((telliot_price - price) / price) * 100
-        is_valid = percentage_change <= self.tolerance * 100
+        price_validation_method = os.getenv("PRICE_VALIDATION_METHOD", "percentage_change")
+
+        if price_validation_method == "absolute_difference":
+            result = abs(price - telliot_price)
+        elif price_validation_method == "percentage_difference":
+            result = abs((telliot_price - price) / ((telliot_price + price) / 2)) * 100
+        elif price_validation_method == "percentage_change":
+            result = abs((telliot_price - price) / price) * 100
+        else:
+            logger.warning(f"Invalid price validation method: {price_validation_method}, defaulting to percentage_change")
+            price_validation_method = "percentage_change"
+            result = abs((telliot_price - price) / price) * 100
+        
+        tolerance = self.tolerance * 100 if 'percentage' in price_validation_method else self.tolerance
+        is_valid = result <= tolerance
 
         green_color = '\033[92m'
         endc_color = '\033[0m'
         logger.info(f"""
             {green_color}
-            Price Service API info:
+            Price Service API single LP info:
             Request URL: {request_url}
             LP address ({token0}-{token1}): {contract_addr}
             API Price: {price}
             Telliot Price: {telliot_price}
-            Percentage change: {percentage_change}%
-            Tolerance: {self.tolerance * 100}%
+            Validation Method: {price_validation_method}
+            Result: {result}{'%' if 'percentage' in price_validation_method else ''}
+            Tolerance: {tolerance}{'%' if 'percentage' in price_validation_method else ''}
             Is valid? {is_valid}
             {endc_color}
         """)
