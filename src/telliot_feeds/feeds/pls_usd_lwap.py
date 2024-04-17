@@ -14,12 +14,12 @@ DEFAULT_LP_CURRENCIES = ['usdt', 'usdc', 'dai']
 def get_sources_objs():
     sources = os.getenv("PLS_CURRENCY_SOURCES")
     if not sources:
-        logger.info(f"Using default '{DEFAULT_LP_CURRENCIES}' as currencies for PLS VWAP feed")
+        logger.info(f"Using default '{DEFAULT_LP_CURRENCIES}' as currencies for PLS LWAP feed")
         return [TWAPLPSpotPriceSource(asset="pls", currency=currency) for currency in DEFAULT_LP_CURRENCIES]
     sources_list = sources.split(',')
     return [TWAPLPSpotPriceSource(asset="pls", currency=currency) for currency in sources_list]
 
-pls_usd_vwap_feed = DataFeed(
+pls_usd_lwap_feed = DataFeed(
     query=SpotPrice(
         asset="pls",
         currency="usd"

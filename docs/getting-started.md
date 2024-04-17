@@ -212,10 +212,10 @@ python set_telliot_env.py --env testnet
 
 ### telliot-feeds reporting a price
 
-You can get started with telliot report by running the following telliot command. It will make a PLS/USD price report with the volume weighted average price (VWAP) default configuration, please refer to [Configuring price sources](./configuring-sources.md) docs to see the defaults and configurations.
+You can get started with telliot report by running the following telliot command. It will make a PLS/USD price report with the liquidity weighted average price (LWAP) default configuration, please refer to [Configuring price sources](./configuring-sources.md) docs to see the defaults and configurations.
 
 ```sh
-telliot report -a myacct1 -qt pls-usd-spot-vwap --fetch-flex
+telliot report -a myacct1 -qt pls-usd-spot --fetch-flex
 ```
 
 There are also additional flags you can pass to use a specific strategy for calculating `maxFeePerGas` and `maxPriorityFeePerGas` for EIP-1559 transactions, please see [Fees Estimation](./fees-estimation.md).
