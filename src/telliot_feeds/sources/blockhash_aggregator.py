@@ -36,7 +36,7 @@ adapter = HTTPAdapter(max_retries=retry_strategy)
 def get_mainnet_web3() -> Any:
     """Get mainnet TelliotConfig."""
     cfg = TelliotConfig()
-    cfg.main.chain_id = 1
+    cfg.main.chain_id = 369
     try:
         cfg.get_endpoint().connect()
         return cfg.get_endpoint().web3
@@ -49,45 +49,44 @@ def block_num_from_timestamp(timestamp: int) -> Optional[int]:
         s.mount("https://", adapter)
         try:
             rsp = s.get(
-                "https://api.etherscan.io/api"
+                "https://api.scan.pulsechain.com/api"
                 "?module=block"
                 "&action=getblocknobytime"
                 f"&timestamp={timestamp}"
                 "&closest=before"
-                "&apikey="
             )
         except requests.exceptions.ConnectTimeout:
-            logger.error("Connection timeout getting ETH block num from timestamp")
+            logger.error("Connection timeout getting PLS block num from timestamp")
             return None
         except requests.exceptions.RequestException as e:
-            logger.error(f"Etherscan API error: {e}")
+            logger.error(f"Pulsescan API error: {e}")
             return None
 
         try:
             this_block = rsp.json()
         except JSONDecodeError:
-            logger.error("Etherscan API returned invalid JSON")
+            logger.error("Pulsescan API returned invalid JSON")
             return None
 
         try:
             if this_block["status"] != "1":
-                logger.error(f"Etherscan API returned error: {this_block['message']}")
+                logger.error(f"Pulsescan API returned error: {this_block['message']}")
                 return None
         except KeyError:
-            logger.error("Etherscan API returned JSON without status")
+            logger.error("Pulsescan API returned JSON without status")
             return None
 
         try:
-            result = int(this_block["result"])
+            result = int(this_block["result"]["blockNumber"])
         except ValueError:
-            logger.error("Etherscan API returned invalid block number")
+            logger.error("Pulsescan API returned invalid block number")
             return None
 
         return result
 
 
-async def get_eth_hash(timestamp: int) -> Optional[str]:
-    """Fetches next Ethereum blockhash after timestamp from API."""
+async def get_pls_hash(timestamp: int) -> Optional[str]:
+    """Fetches next Pulsechain blockhash after timestamp from API."""
     w3 = get_mainnet_web3()
     if w3 is None:
         logger.warning("Web3 not connected")
@@ -100,12 +99,12 @@ async def get_eth_hash(timestamp: int) -> Optional[str]:
         return None
 
     if this_block["timestamp"] < timestamp:
-        logger.error(f"Timestamp {timestamp} is older than current block timestamp {this_block['timestamp']}")
+        logger.error(f"BTC Timestamp {timestamp} is older than current PLS block timestamp {this_block['timestamp']}")
         return None
 
     block_num = block_num_from_timestamp(timestamp)
     if block_num is None:
-        logger.warning("Unable to retrieve block number from Etherscan API")
+        logger.warning("Unable to retrieve block number from Pulsescan API")
         return None
 
     try:
@@ -114,7 +113,7 @@ async def get_eth_hash(timestamp: int) -> Optional[str]:
         logger.error(f"Unable to retrieve block {block_num}: {e}")
         return None
 
-    logger.info(f"Using ETH block number {block_num}")
+    logger.info(f"Using PLS block number {block_num}")
     return str(block["hash"].hex())
 
 
@@ -205,8 +204,8 @@ class FetchRNGManualSource(DataSource[Any]):
             return True
         else:
             logger.info(
-                f"Invalid timestamp: {timestamp}, should be greater than eth genesis block timestamp"
-                "and less than current time"
+                f"Invalid timestamp: {timestamp}, should be greater than pls genesis block timestamp"
+                f"and less than current time = {int(time.time())}"
             )
             return False
 
@@ -233,12 +232,12 @@ class FetchRNGManualSource(DataSource[Any]):
         if btc_timestamp is None:
             logger.warning("Unable to retrieve Bitcoin timestamp")
             return None, None
-        eth_hash = await get_eth_hash(btc_timestamp)
-        if eth_hash is None:
-            logger.warning("Unable to retrieve Ethereum blockhash")
+        pls_hash = await get_pls_hash(btc_timestamp)
+        if pls_hash is None:
+            logger.warning("Unable to retrieve Pulsechain blockhash")
             return None, None
 
-        data = Web3.solidityKeccak(["string", "string"], [eth_hash, btc_hash])
+        data = Web3.solidityKeccak(["string", "string"], [pls_hash, btc_hash])
         dt = datetime.fromtimestamp(self.timestamp, tz=timezone.utc)
         datapoint = (data, dt)
 
