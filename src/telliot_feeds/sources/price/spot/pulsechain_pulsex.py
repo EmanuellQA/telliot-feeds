@@ -16,13 +16,6 @@ import requests
 import math
 from decimal import Decimal
 
-URLS = {
-    'usdt': 'https://api.dexscreener.com/latest/dex/pairs/pulsechain/0x322Df7921F28F1146Cdf62aFdaC0D6bC0Ab80711',
-    'usdc': 'https://api.dexscreener.com/latest/dex/pairs/pulsechain/0x6753560538ECa67617A9Ce605178F788bE7E524E',
-    'dai': 'https://api.dexscreener.com/latest/dex/pairs/pulsechain/0xe56043671df55de5cdf8459710433c10324de0ae'
-    
-}
-
 class bcolors:
     green = '\033[92m'
     red = '\033[91m'
@@ -100,7 +93,104 @@ class PulsechainPulseXService(WebPriceService):
         kwargs["url"] = os.getenv("LP_PULSE_NETWORK_URL", "https://rpc.pulsechain.com")
         kwargs["timeout"] = 10.0
         self.debugging_price = os.getenv("DEBUGGING_PRICE", 'False').lower() in ('true', '1', 't')
+        self.tolerance = float(os.getenv("PRICE_TOLERANCE", 1e-2))
         super().__init__(**kwargs)
+
+    def _get_token_names(self, currency: str):
+        token0, token1 = pls_lps_order[currency].split('/')
+        return token0.strip().upper(), token1.strip().upper()
+    
+    def _debug_lp_price(self, token0: str, token1: str, contract_addr: str, price: Decimal):
+        price_service_base_url = os.getenv("PRICE_SERVICE_BASE_URL", "http://127.0.0.1:3333")
+        request_url = f"{price_service_base_url}/dexscreener/{token0}/{token1}/{contract_addr}"
+        r = requests.get(request_url)
+        data = r.json()
+        
+        pair = data['pair']
+        priceUsd = Decimal(data['price'])
+
+        logger.debug(f"{bcolors.yellow}{pair}{bcolors.endc}")
+
+        priceUsd_copy = priceUsd * Decimal(1e5)
+        price_copy = price * Decimal(1e5)
+        if math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2):
+            logger.debug(f"""
+                {bcolors.green}
+                For better visualization the prices are multiplied by 1e5
+                priceUsd * 1e5: {priceUsd_copy}
+                price * 1e5: {price_copy}
+
+                Price CORRECT ({token0}-{token1}):
+                Pair dexscreener API priceUsd: {priceUsd_copy}
+                Reported price rounded: {round(price_copy, 8)}
+                math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
+
+                Abs Diff:
+                abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
+
+                Percentage Diffs (for 1.5%):
+                abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
+                abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
+                abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
+                abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015: {abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015}
+                {bcolors.endc}
+            """)
+        else:
+            logger.debug(f"""
+                {bcolors.red}
+                For better visualization the prices are multiplied by 1e5
+                priceUsd * 1e5: {priceUsd_copy}
+                price * 1e5: {price_copy}
+
+                Price INCORRECT ({token0}-{token1}):
+                Pair dexscreener API priceUsd: {priceUsd_copy}
+                Reported price rounded: {round(price_copy, 8)}
+                math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
+
+                Abs Diff:
+                abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
+
+                Percentage Diffs (for 1.5%):
+                abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
+                abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
+                abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
+                abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015: {abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015}
+                {bcolors.endc}
+            """)
+    
+    def _is_price_valid(self, currency: str, telliot_price: Decimal):
+        token0, token1 = self._get_token_names(currency)
+        price_service_base_url = os.getenv("PRICE_SERVICE_BASE_URL", "http://127.0.0.1:3333")
+        contract_addr = addrs[currency]
+
+        request_url = f"{price_service_base_url}/dexscreener/{token0}/{token1}/{contract_addr}"
+        r = requests.get(request_url)
+
+        if not r.ok:
+            logger.error(f"Error fetching data from {request_url}: {r.text}. Returning price as valid")
+            return True
+
+        data = r.json()
+        price = Decimal(data['price'])
+
+        percentage_change = abs((telliot_price - price) / price) * 100
+        is_valid = percentage_change <= self.tolerance * 100
+
+        green_color = '\033[92m'
+        endc_color = '\033[0m'
+        logger.info(f"""
+            {green_color}
+            Price Service API info:
+            Request URL: {request_url}
+            LP address ({token0}-{token1}): {contract_addr}
+            API Price: {price}
+            Telliot Price: {telliot_price}
+            Percentage change: {percentage_change}%
+            Tolerance: {self.tolerance * 100}%
+            Is valid? {is_valid}
+            {endc_color}
+        """)
+        return is_valid
 
     async def get_price(self, asset: str, currency: str) -> OptionalDataPoint[float]:
         """Implement PriceServiceInterface
@@ -118,7 +208,7 @@ class PulsechainPulseXService(WebPriceService):
 
         contract_addr = addrs.get(currency)
         
-        if asset != 'pls':
+        if asset != 'pls' and asset != 'validated-feed':
             logger.error(f"Asset not supported: {asset}")
             return None, None
 
@@ -158,64 +248,21 @@ class PulsechainPulseXService(WebPriceService):
             logger.info(f"""
                 LP price for {asset}-{currency}: {price}
                 LP contract address: {contract_addr}
-            """)
+            """) 
+            
+            if asset == "validated-feed":
+                try:
+                    if not self._is_price_valid(currency, price):
+                        logger.warning(f"Price from dexscreener API is different from LP price")
+                        return None, None
+                except Exception as e:
+                    logger.warning(f"Error validating price with Price Service API: {e}")
 
             if self.debugging_price:
-                r = requests.get(URLS[currency])
-
-                pair = r.json()['pair']
-                priceUsd = Decimal(pair['priceUsd'])
-
-                logger.debug(f'{bcolors.yellow}')
-                logger.debug(pair)
-                logger.debug(f'{bcolors.endc}')
-
-                priceUsd_copy = priceUsd * Decimal(1e5)
-                price_copy = price * Decimal(1e5)
-                if math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2):
-                    logger.debug(f"{bcolors.green}")
-                    logger.debug(f"""
-                        For better visualization the prices are multiplied by 1e5
-                        priceUsd * 1e5: {priceUsd_copy}
-                        price * 1e5: {price_copy}
-
-                        Price CORRECT ({asset}-{currency}):
-                        Pair dexscreener API priceUsd: {priceUsd_copy}
-                        Reported price rounded: {round(price_copy, 8)}
-                        math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
-
-                        Abs Diff:
-                        abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
-
-                        Percentual Diffs (for 1.5%):
-                        abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
-                        abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
-                        abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
-                        abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015: {abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015}
-                    """)
-                    logger.debug(f'{bcolors.endc}')
-                else:
-                    logger.debug(f"{bcolors.red}")
-                    logger.debug(f"""
-                        For better visualization the prices are multiplied by 1e5
-                        priceUsd * 1e5: {priceUsd_copy}
-                        price * 1e5: {price_copy}
-
-                        Price INCORRECT ({asset}-{currency}):
-                        Pair dexscreener API priceUsd: {priceUsd_copy}
-                        Reported price rounded: {round(price_copy, 8)}
-                        math.isclose(priceUsd, price, abs_tol=1e-2): {math.isclose(priceUsd_copy, price_copy, abs_tol=1e-2)}
-
-                        Abs Diff:
-                        abs(priceUsd - price): {abs(priceUsd_copy - price_copy)}
-
-                        Percentual Diffs (for 1.5%):
-                        abs((priceUsd - price) / price): {abs((priceUsd_copy - price_copy) / price_copy)}
-                        abs((priceUsd - price) / ((priceUsd + price) / 2)): {abs((priceUsd - price) / ((priceUsd + price) / 2))}
-                        abs((priceUsd - price) / price) <= 0.015 : {abs((priceUsd_copy - price_copy) / price_copy) <= 0.015}
-                        abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015: {abs((priceUsd - price) / ((priceUsd + price) / 2)) <= 0.015}
-                    """)
-                    logger.debug(f'{bcolors.endc}')
+                try:
+                    self._debug_lp_price(asset, currency, addrs[currency], price)
+                except Exception as e:
+                    logger.warning(f"Error debugging price: {e}")
             
             return float(price), timestamp, float(tvl)
         except Exception as e:

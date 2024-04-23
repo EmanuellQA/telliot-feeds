@@ -42,25 +42,35 @@ def default_logsdir() -> pathlib.Path:
     return logsdir
 
 
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+class Logger(metaclass=Singleton):
+    def __init__(self) -> None:
+        """Telliot feed examples logger
+        Returns a logger that logs to stdout and file. The name arg
+        should be the current file name. For example:
+        _ = get_logger(name=__name__)
+        """
+        log_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+        formatter = logging.Formatter(log_format, datefmt="%Y-%m-%d %H:%M:%S")
+        stream = logging.StreamHandler(sys.stdout)
+        stream.setFormatter(formatter)
+        logger = logging.getLogger('global_logger')
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(stream)
+        activate_file_logger = os.getenv("ACTIVATE_TELLIOT_LOG_FILE", 'False').lower() in ('true', '1', 't')
+        if activate_file_logger:
+            fh = RotatingFileHandler("telliot_feeds.log", maxBytes=10000000)
+            fh.setFormatter(formatter)
+            logger.addHandler(fh)
+        logger.addFilter(DuplicateFilter())
+
+        self.logger = logger
+
 def get_logger(name: str) -> logging.Logger:
-    """Telliot feed examples logger
-
-    Returns a logger that logs to stdout and file. The name arg
-    should be the current file name. For example:
-    _ = get_logger(name=__name__)
-    """
-    log_format = "%(levelname)-7s | %(name)s | %(message)s"
-    formatter = logging.Formatter(log_format)
-    stream = logging.StreamHandler(sys.stdout)
-    stream.setFormatter(formatter)
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(stream)
-    activate_file_logger = os.getenv("ACTIVATE_TELLIOT_LOG_FILE", 'False').lower() in ('true', '1', 't')
-    if activate_file_logger:
-        fh = RotatingFileHandler("telliot_feeds.log", maxBytes=10000000)
-        fh.setFormatter(formatter)
-        logger.addHandler(fh)
-    logger.addFilter(DuplicateFilter())
-
-    return logger
+    return Logger().logger.getChild(name)

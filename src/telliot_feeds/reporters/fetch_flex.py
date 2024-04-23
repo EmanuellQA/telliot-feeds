@@ -58,6 +58,9 @@ class FetchFlexReporter(IntervalReporter):
         check_rewards: bool = True,
         use_random_feeds: bool = False,
         continue_reporting_on_dispute: bool = False,
+        price_validation_method: str = "percentage_change",
+        price_validation_consensus: str = "majority",
+        continue_reporting_on_validator_unreachable: bool = False,
         use_estimate_fee: bool = False,
         use_gas_api: bool = False,
         force_nonce: Optional[int] = None,
@@ -89,6 +92,9 @@ class FetchFlexReporter(IntervalReporter):
         self.use_random_feeds: bool = use_random_feeds
         self.web3 = self.endpoint.web3
         self.continue_reporting_on_dispute: bool = continue_reporting_on_dispute
+        self.price_validation_method: str = price_validation_method
+        self.price_validation_consensus: str = price_validation_consensus
+        self.continue_reporting_on_validator_unreachable: bool = continue_reporting_on_validator_unreachable
         self.use_estimate_fee: bool = use_estimate_fee
         self.use_gas_api: bool = use_gas_api        
         self.force_nonce: Optional[int] = force_nonce
