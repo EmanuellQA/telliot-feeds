@@ -1,4 +1,3 @@
 [submodule "telliot-core"]
 	path = telliot-core
 	url = git@github.com:fetchoracle/telliot-core.git
-	branch = dev
