@@ -117,6 +117,7 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           submodules: true
+          token: ${{ secrets.TOKEN_GITHUB }}
 
       - name: Add profile credentials to ~/.aws/credentials
         run: |
