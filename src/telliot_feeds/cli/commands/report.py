@@ -1,5 +1,6 @@
 from typing import Any
 from typing import Optional
+import os
 
 import click
 from chained_accounts import find_accounts
@@ -544,6 +545,8 @@ async def report(
                 "force_nonce": force_nonce,
                 "tx_timeout": tx_timeout,
             }) # type: ignore
+
+        os.environ["PRICE_VALIDATION_METHOD"] = price_validation_method
 
         if submit_once:
             if chosen_feed.query.asset == 'validated-feed':
