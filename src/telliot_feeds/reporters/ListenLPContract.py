@@ -76,6 +76,7 @@ class ListenLPContract(Contract):
             self,
             sync_event: threading.Event,
             time_limit_event: threading.Event,
+            is_submitting_report: threading.Event,
             current_report_time: dict[str,int],
             fetch_new_datapoint: Callable
     ):
@@ -85,6 +86,8 @@ class ListenLPContract(Contract):
 
         self.sync_event = sync_event
         self.time_limit_event = time_limit_event
+        self.is_submitting_report = is_submitting_report
+
         self.current_report_time = current_report_time
         self.time_limit = int(os.getenv('REPORT_TIME_LIMIT', 3600))
         self.percentage_change_threshold = float(os.getenv('PERCENTAGE_CHANGE_THRESHOLD', 0.005))
@@ -169,6 +172,10 @@ class ListenLPContract(Contract):
         while True:
             logger.info("Listening Sync events...")
             if not self.is_initialized: await self.initialize_price()
+            if self.is_submitting_report.is_set():
+                logger.info("log loop awaiting report submission")
+                await asyncio.sleep(polling_interval)
+                continue
             try:
                 self.is_sync_event_handled = False
                 self.pair_handled_data = None

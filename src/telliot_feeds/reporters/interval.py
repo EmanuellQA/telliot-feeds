@@ -660,6 +660,7 @@ class IntervalReporter:
         current_report_time = { "timestamp": time.time() }
         sync_event = threading.Event()
         time_limit_event = threading.Event()
+        is_submitting_report = threading.Event()
 
         flexV3 = FlexV3(
                 datafeed=datafeed,
@@ -674,6 +675,7 @@ class IntervalReporter:
         listen_lp_contract = ListenLPContract(
             sync_event=sync_event,
             time_limit_event=time_limit_event,
+            is_submitting_report=is_submitting_report,
             current_report_time=current_report_time,
             fetch_new_datapoint=flexV3.fetch_new_datapoint
         )
@@ -693,10 +695,12 @@ class IntervalReporter:
                 logger.info("Time limit reached! Submitting price")
 
             logger.info("Report triggered")
+            is_submitting_report.set()
             await flexV3.callSubmitValue()
             current_report_time["timestamp"] = time.time()
             sync_event.clear()
             time_limit_event.clear()
+            is_submitting_report.clear()
 
             if submit_once: break
 
