@@ -170,7 +170,7 @@ def configure_mock_price_api_env(new_price: Decimal, env_config: list[str] = Non
             prevLines = file.readlines()
             prevLines = [line if line.endswith('\n') else line + '\n' for line in prevLines]
     lines = prevLines.copy()
-    lines += [f'SERVER_PORT={MOCK_PRICE_API_PORT}\n', f'PLS_PRICE={new_price}\n', 'PULSECHAIN_NODE_URL=http://localhost:8545']
+    lines += [f'SERVER_PORT={MOCK_PRICE_API_PORT}\n', f'COINGECKO_PLS_PRICE={new_price}\n', 'PULSECHAIN_NODE_URL=http://localhost:8545']
     with open(env_file, 'w') as file:
         file.write("".join(lines))
     return prevLines
@@ -241,22 +241,16 @@ def submit_report_with_telliot(account_name: str, stake_amount: str, managed_fee
         report = f'telliot report -a {account_name} -ncr -qt pls-usd-spot --fetch-flex --submit-once -s {stake_amount} -mf 80000 -pf 1.5 -gm 20'
 
         if managed_feeds:
-            report = f'telliot report -a {account_name} -ncr -qt validated-feed-usd-spot-api --fetch-flex --submit-once -mf 80000 -pf 1.5 -gm 20'
+            report = f'telliot report -a {account_name} -ncr -qt validated-feed-usd-spot-api --fetch-flex --submit-once -mf 80000 -pf 1.5 -gm 20 --continue-reporting-on-validator-unreachable'
 
         logger.info(f"Submitting report: {report}")
         report_process = pexpect.spawn(report, timeout=120)
         report_process.logfile = sys.stdout.buffer
-        report_process.expect("\w+\r\n")
-        report_process.expect("\w+\r\n")
-        report_process.expect("\w+\r\n")
-        if managed_feeds:
-            report_process.expect("\w+\r\n")
+        report_process.expect(r".+?\n")
+        report_process.expect(r"Proceed with current settings \(y\) or update \(n\)\? \[Y/n\]: ")
         report_process.sendline('y')
-        report_process.expect("\w+\r\n")
-        report_process.sendline('')
-        report_process.expect("\w+\r\n")
-        report_process.sendline('')
-        report_process.expect("\w+\r\n")
+        report_process.expect(r".+?\n")
+        report_process.expect(rf"Enter password for {account_name} account: ")
         report_process.sendline('')
         report_process.expect("confirm settings.")
         report_process.sendline('\n')
