@@ -105,7 +105,8 @@ class FlexV3(Contract):
         self.continue_reporting_on_validator_unreachable = continue_reporting_on_validator_unreachable
         self.flexv3_contract = self._get_contract(self.oracle.address)
         self.tolerance = float(os.getenv("PRICE_TOLERANCE", 1e-2))
-        logger.info(f"FlexV3 price tolerance: {self.tolerance} ({self.tolerance * 100}%)")
+        tolerance_info = f" ({self.tolerance * 100}%)" if self.price_validation_method != 'absolute_difference' else ""
+        logger.info(f"FlexV3 price tolerance: {self.tolerance}{tolerance_info}")
 
     def _send_request(self, url: str) -> requests.Response:
         try:
@@ -123,7 +124,7 @@ class FlexV3(Contract):
 
             query_params = urlencode({
                 "price": value,
-                "tolerance": self.tolerance * 100,
+                "tolerance": self.tolerance * 100 if "percentage" in self.price_validation_method else self.tolerance,
                 "validation-method": self.price_validation_method,
                 "consensus": self.price_validation_consensus
             })
