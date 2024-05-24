@@ -213,6 +213,10 @@ class FetchRNGManualSource(DataSource[Any]):
         self.timestamp = timestamp
         return self.fetch_new_datapoint()
 
+    async def fetch_new_datapoint_with_timestamp(self, timestamp) -> OptionalDataPoint[bytes]:
+        self.timestamp = timestamp
+        return self.fetch_new_datapoint()
+
     async def fetch_new_datapoint(self) -> OptionalDataPoint[bytes]:
         """Update current value with time-stamped value fetched from user input.
 
