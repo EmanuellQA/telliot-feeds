@@ -1,5 +1,8 @@
 import asyncio
 import time
+import os
+
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from datetime import timezone
@@ -44,7 +47,7 @@ def get_mainnet_web3() -> Any:
         return None
 
 
-def block_num_from_timestamp(timestamp: int) -> Optional[int]:
+def pls_block_num_from_timestamp(timestamp: int) -> Optional[int]:
     with requests.Session() as s:
         s.mount("https://", adapter)
         try:
@@ -84,6 +87,46 @@ def block_num_from_timestamp(timestamp: int) -> Optional[int]:
 
         return result
 
+def eth_block_num_from_timestamp(timestamp: int) -> Optional[int]:
+    with requests.Session() as s:
+        s.mount("https://", adapter)
+        try:
+            rsp = s.get(
+                "https://api.etherscan.io/api"
+                "?module=block"
+                "&action=getblocknobytime"
+                f"&timestamp={timestamp}"
+                "&closest=after"
+                f"&apikey={os.getenv('ETHERSCAN_API_KEY')}"
+            )
+        except requests.exceptions.ConnectTimeout:
+            logger.error("Connection timeout getting Eth block num from timestamp")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Etherscan API error: {e}")
+            return None
+
+        try:
+            this_block = rsp.json()
+        except JSONDecodeError:
+            logger.error("Etherscan API returned invalid JSON")
+            return None
+
+        try:
+            if this_block["status"] != "1":
+                logger.error(f"Etherscan API returned error: {this_block['message']}")
+                return None
+        except KeyError:
+            logger.error("Etherscan API returned JSON without status")
+            return None
+
+        try:
+            result = int(this_block["result"])
+        except ValueError:
+            logger.error("Etherscan API returned invalid block number")
+            return None
+
+        return result
 
 async def get_pls_hash(timestamp: int) -> Optional[str]:
     """Fetches next Pulsechain blockhash after timestamp from API."""
@@ -102,7 +145,7 @@ async def get_pls_hash(timestamp: int) -> Optional[str]:
         logger.error(f"BTC Timestamp {timestamp} is older than current PLS block timestamp {this_block['timestamp']}")
         return None
 
-    block_num = block_num_from_timestamp(timestamp)
+    block_num = pls_block_num_from_timestamp(timestamp)
     if block_num is None:
         logger.warning("Unable to retrieve block number from Pulsescan API")
         return None
@@ -154,14 +197,57 @@ async def get_btc_hash(timestamp: int) -> Tuple[Optional[str], Optional[int]]:
             break
 
         if block["time"] < timestamp:
-            logger.warning("Blockchain.info API returned no blocks after timestamp")
+            logger.warning(f"Blockchain.info API returned no blocks after timestamp time is {block['time']}")
             return None, None
         logger.info(f"Using BTC block number {block['height']}")
         return str(block["hash"]), block["time"]
 
+async def get_eth_hash(timestamp: int) -> Tuple[Optional[str], Optional[int]]:
+    """Fetches next Ethereum blockhash after timestamp from API."""
+
+    blockNumber = eth_block_num_from_timestamp(timestamp)
+
+    if blockNumber is None:
+        logger.warning("Could not get Ethereum block number")
+        return None, None
+
+    with requests.Session() as s:
+        s.mount("https://", adapter)
+        try:
+            rsp = s.get(
+                "https://api.etherscan.io/api"
+                "?module=proxy"
+                "&action=eth_getBlockByNumber"
+                f"&tag={hex(blockNumber)}"
+                "&boolean=false"
+                f"&apikey={os.getenv('ETHERSCAN_API_KEY')}"
+            )
+        except requests.exceptions.ConnectTimeout:
+            logger.error("Connection timeout getting Eth block num from timestamp")
+            return None, None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Etherscan API error: {e}")
+            return None, None
+
+        try:
+            this_block = rsp.json()
+        except JSONDecodeError:
+            logger.error("Etherscan API returned invalid JSON")
+            return None, None
+
+        try:
+            if this_block["id"] != 1:
+                logger.error(f"Etherscan API returned error: {this_block['message']}")
+                return None
+        except KeyError:
+            logger.error("Etherscan API returned JSON without status")
+            return None, None
+
+        logger.info(f"Using ETH block number {blockNumber}")
+        return str(this_block["result"]["hash"]), int(this_block["result"]["timestamp"], 16)
 
 @dataclass
-class FetchRNGManualSource(DataSource[Any]):
+class FetchRNGCustomManualSource(DataSource[Any]):
     """DataSource for FetchRNG manually-entered timestamp."""
 
     timestamp = 0
@@ -219,6 +305,10 @@ class FetchRNGManualSource(DataSource[Any]):
         Returns:
             Current time-stamped value
         """
+
+        """ To avoid caching issues, we delete the previously reported values """
+        #self._history = deque(maxlen=self.max_datapoints)
+
         if not self.is_valid_timestamp(self.timestamp):
             try:
                 timestamp = self.parse_user_val()
@@ -228,29 +318,28 @@ class FetchRNGManualSource(DataSource[Any]):
         else:
             timestamp = self.timestamp
 
-        btc_hash, btc_timestamp = await get_btc_hash(timestamp)
+        eth_hash, eth_timestamp = await get_eth_hash(timestamp)
 
-        if btc_hash is None:
-            logger.warning("Unable to retrieve Bitcoin blockhash")
+        if eth_hash is None:
+            logger.warning("Unable to retrieve Ethereum blockhash")
             return None, None
-        if btc_timestamp is None:
-            logger.warning("Unable to retrieve Bitcoin timestamp")
+        if eth_timestamp is None:
+            logger.warning("Unable to retrieve Ethereum timestamp")
             return None, None
-        pls_hash = await get_pls_hash(btc_timestamp)
+        pls_hash = await get_pls_hash(eth_timestamp)
         if pls_hash is None:
             logger.warning("Unable to retrieve Pulsechain blockhash")
             return None, None
 
-        data = Web3.solidityKeccak(["string", "string"], [pls_hash, btc_hash])
+        logger.info(f"using ETH blockhash { eth_hash }")
+        logger.info(f"using PLS blockhash { pls_hash }")
+
+        rng_hash = Web3.solidityKeccak(["string", "string"], [pls_hash, eth_hash])
         dt = datetime.fromtimestamp(self.timestamp, tz=timezone.utc)
+        data = (rng_hash, self.timestamp)
+        logger.info(f"Generated data { data }")
+
         datapoint = (data, dt)
 
         self.store_datapoint(datapoint)
-        logger.info(f"Stored random number for timestamp {timestamp}: {data.hex()}")
         return datapoint
-
-
-if __name__ == "__main__":
-    s = FetchRNGManualSource()
-    v, t = asyncio.run(s.fetch_new_datapoint())
-    print("datapoint:", v, t)
