@@ -721,7 +721,12 @@ class IntervalReporter:
         """Submit values to Fetch oracles on an interval."""
 
         datafeed = await self.fetch_datafeed()
-        asset = datafeed.query.asset
+
+        try:
+            asset = getattr(datafeed.query, 'asset', '')
+        except:
+            asset = ''
+            logger.warning("Could not fetch datafeed")
 
         if asset == "validated-feed":
             await self.managed_feed_report()

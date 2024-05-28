@@ -55,6 +55,7 @@ from telliot_feeds.feeds.string_query_feed import string_query_feed
 from telliot_feeds.feeds.sushi_usd_feed import sushi_usd_median_feed
 from telliot_feeds.feeds.fetch_rng_feed import fetch_rng_feed
 from telliot_feeds.feeds.fetch_rng_manual_feed import fetch_rng_manual_feed
+from telliot_feeds.feeds.fetch_rng_custom_feed import fetch_rng_custom_feed
 from telliot_feeds.feeds.fetch_usd_feed import fetch_usd_median_feed
 from telliot_feeds.feeds.twap_manual_feed import twap_30d_example_manual_feed
 from telliot_feeds.feeds.twap_manual_feed import twap_manual_feed
@@ -65,7 +66,6 @@ from telliot_feeds.feeds.uspce_feed import uspce_feed
 from telliot_feeds.feeds.vesq import vsq_usd_median_feed
 from telliot_feeds.feeds.xdai_usd_feed import xdai_usd_median_feed
 from telliot_feeds.feeds.yfi_usd_feed import yfi_usd_median_feed
-
 
 CATALOG_FEEDS = {
     "ampleforth-custom": ampl_usd_vwap_feed,
@@ -89,6 +89,7 @@ CATALOG_FEEDS = {
     "diva-protocol-example": diva_manual_feed,
     "string-query-example": string_query_feed,
     "fetch-rng-example": fetch_rng_feed,
+    "fetch-rng-custom": fetch_rng_custom_feed,
     "twap-eth-usd-example": twap_30d_example_manual_feed,
     "pls-usd-spot": pls_usd_feed,
     "pls-usd-spot-twap": pls_usd_twap_feed,
@@ -135,6 +136,7 @@ DATAFEED_BUILDER_MAPPING: Dict[str, DataFeed[Any]] = {
     "TWAP": twap_manual_feed,
     "DailyVolatility": daily_volatility_manual_feed,
     "FetchRNG": fetch_rng_feed,
+    "FetchRNGCustom": fetch_rng_custom_feed,
     "FetchRNGManualResponse": fetch_rng_manual_feed,
     "AmpleforthCustomSpotPrice": ampl_usd_vwap_feed,
     "AmpleforthUSPCE": uspce_feed,

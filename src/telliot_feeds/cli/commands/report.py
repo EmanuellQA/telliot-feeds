@@ -2,6 +2,7 @@ from typing import Any
 from typing import Optional
 import os
 
+import os
 import click
 from chained_accounts import find_accounts
 from click.core import Context
@@ -26,6 +27,7 @@ from telliot_feeds.integrations.diva_protocol.report import DIVAProtocolReporter
 from telliot_feeds.queries.query_catalog import query_catalog
 from telliot_feeds.reporters.flashbot import FlashbotsReporter
 from telliot_feeds.reporters.rng_interval import RNGReporter
+from telliot_feeds.reporters.rng_interval_custom import RNGCustomReporter
 from telliot_feeds.reporters.fetch_360 import Fetch360Reporter
 from telliot_feeds.reporters.fetch_flex import FetchFlexReporter
 from telliot_feeds.utils.cfg import check_endpoint
@@ -371,6 +373,7 @@ async def report(
     continue_reporting_on_validator_unreachable: bool,
 ) -> None:
     """Report values to Fetch oracle"""
+
     ctx.obj["ACCOUNT_NAME"] = account_str
     ctx.obj["SIGNATURE_ACCOUNT_NAME"] = signature_account
 
@@ -534,24 +537,33 @@ async def report(
                 **common_reporter_kwargs,
             )  # type: ignore
         else:
-            reporter = FetchFlexReporter(**{
-                **common_reporter_kwargs,
-                "continue_reporting_on_dispute": continue_reporting_on_dispute,
-                "price_validation_method": price_validation_method,
-                "price_validation_consensus": price_validation_consensus,
-                "continue_reporting_on_validator_unreachable": continue_reporting_on_validator_unreachable,
-                "use_estimate_fee": use_estimate_fee,
-                "use_gas_api": use_gas_api,
-                "force_nonce": force_nonce,
-                "tx_timeout": tx_timeout,
-            }) # type: ignore
+            if getattr(chosen_feed.query, 'is_custom_rng', False):
+                common_reporter_kwargs["wait_period"] = int(os.getenv('REPORT_INTERVAL', "300"))
+                reporter = RNGCustomReporter(**{
+                    **common_reporter_kwargs,
+                }) # type: ignore
+            else:                
+                reporter = FetchFlexReporter(**{
+                    **common_reporter_kwargs,
+                    "continue_reporting_on_dispute": continue_reporting_on_dispute,
+                    "price_validation_method": price_validation_method,
+                    "price_validation_consensus": price_validation_consensus,
+                    "continue_reporting_on_validator_unreachable": continue_reporting_on_validator_unreachable,
+                    "use_estimate_fee": use_estimate_fee,
+                    "use_gas_api": use_gas_api,
+                    "force_nonce": force_nonce,
+                    "tx_timeout": tx_timeout,
+                }) # type: ignore
 
         os.environ["PRICE_VALIDATION_METHOD"] = price_validation_method
 
         if submit_once:
+
             if chosen_feed.query.asset == 'validated-feed':
                 await reporter.managed_feed_report(submit_once=True)
-            else:
-                _, _ = await reporter.report_once()
+                return
+
+            _, _ = await reporter.report_once()
+
         else:
             await reporter.report()

@@ -3,6 +3,7 @@ submits FetchRNG values at a fixed time interval
 """
 import calendar
 import time
+import os
 from typing import Any
 from typing import Optional
 
@@ -13,15 +14,14 @@ from telliot_feeds.datafeed import DataFeed
 from telliot_feeds.feeds.fetch_rng_feed import assemble_rng_datafeed
 from telliot_feeds.queries.fetch_rng import FetchRNG
 from telliot_feeds.reporters.reporter_autopay_utils import get_feed_tip
-from telliot_feeds.reporters.fetch_360 import Fetch360Reporter
+from telliot_feeds.reporters.fetch_flex import FetchFlexReporter
 from telliot_feeds.utils.log import get_logger
 
 
 logger = get_logger(__name__)
 
-INTERVAL = 60 * 30  # 30 minutes
-START_TIME = 1653350400  # 2022-5-24 00:00:00 GMT
-
+INTERVAL = os.getenv('REPORT_INTERVAL', 60 * 5) # 5 minutes
+START_TIME = os.getenv('START_TIME', 1653350400) # 2022-5-24 00:00:00 GMT
 
 def get_next_timestamp() -> int:
     """get next target timestamp"""
@@ -30,9 +30,9 @@ def get_next_timestamp() -> int:
     return target_ts
 
 
-class RNGReporter(Fetch360Reporter):
+class RNGReporter(FetchFlexReporter):
     """Reports FetchRNG values at a fixed interval to FetchFlex
-    on Polygon."""
+    on Pulsechain."""
 
     async def fetch_datafeed(self) -> Optional[DataFeed[Any]]:
         status = ResponseStatus()
@@ -53,7 +53,7 @@ class RNGReporter(Fetch360Reporter):
             logger.info(status.error)
             return None
 
-        datafeed = await assemble_rng_datafeed(timestamp=rng_timestamp, node=self.endpoint, account=self.account)
+        datafeed = await assemble_rng_datafeed(timestamp=rng_timestamp)
         if datafeed is None:
             msg = "Unable to assemble RNG datafeed"
             error_status(note=msg, log=logger.warning)

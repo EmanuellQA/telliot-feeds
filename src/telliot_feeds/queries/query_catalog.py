@@ -12,6 +12,11 @@ from telliot_feeds.queries.price.twap import TWAP
 from telliot_feeds.queries.snapshot import Snapshot
 from telliot_feeds.queries.string_query import StringQuery
 from telliot_feeds.queries.fetch_rng import FetchRNG
+from telliot_feeds.queries.fetch_rng_custom import FetchRNGCustom
+import os
+
+START_TIME = int(os.getenv('START_TIME', "1653350400")) # 2022-5-24 00:00:00 GMT
+FETCH_RNG_NAME = os.getenv('FETCH_RNG_NAME', "custom") #default feed name to custom
 
 """Main instance of the Query Catalog."""
 query_catalog = Catalog()
@@ -323,4 +328,11 @@ query_catalog.add_entry(
     title="Crypto Coven TAMI calculation for Mimicry",
     q=MimicryCollectionStat(
         collectionAddress="0x5180db8F5c931aaE63c74266b211F580155ecac8", chainId=1, metric=0),
+)
+
+query_catalog.add_entry(
+    tag="fetch-rng-custom",
+    title="Fetch RNG Custom", 
+    q=FetchRNGCustom(
+        name=FETCH_RNG_NAME, interval=START_TIME)
 )
