@@ -562,11 +562,7 @@ async def report(
 
         if submit_once:
 
-<<<<<<< HEAD
-            if chosen_feed.query.asset in managed_feeds.assets:
-=======
-            if chosen_feed is not None and chosen_feed.query.asset == 'validated-feed':
->>>>>>> feed9658503746cc49e9a34120351dd48f36f7a5
+            if chosen_feed is not None and chosen_feed.query.asset in managed_feeds.assets:
                 await reporter.managed_feed_report(submit_once=True)
                 return
 

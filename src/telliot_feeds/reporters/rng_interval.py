@@ -20,8 +20,8 @@ from telliot_feeds.utils.log import get_logger
 
 logger = get_logger(__name__)
 
-INTERVAL = os.getenv('INTERVAL', 60 * 5) # 5 minutes
-START_TIME = os.getenv('START_TIME', 1653350400) # 2022-5-24 00:00:00 GMT
+INTERVAL = int(os.getenv('REPORT_INTERVAL', 60 * 5)) # 5 minutes
+START_TIME = int(os.getenv('START_TIME', 1653350400)) # 2022-5-24 00:00:00 GMT
 
 def get_next_timestamp() -> int:
     """get next target timestamp"""
