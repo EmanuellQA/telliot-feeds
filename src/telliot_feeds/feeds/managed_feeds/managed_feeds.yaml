@@ -1,0 +1,5 @@
+managed-feeds:
+  - asset: <asset>
+    currency: <currency>
+  - asset: <asset2>
+    currency: <currency2>

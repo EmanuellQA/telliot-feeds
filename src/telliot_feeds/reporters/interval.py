@@ -26,6 +26,7 @@ from telliot_feeds.datafeed import DataFeed
 from telliot_feeds.feeds import CATALOG_FEEDS
 from telliot_feeds.feeds.eth_usd_feed import eth_usd_median_feed
 from telliot_feeds.feeds.fetch_usd_feed import fetch_usd_median_feed
+from telliot_feeds.feeds.managed_feeds.ManagedFeeds import managed_feeds
 from telliot_feeds.utils.log import get_logger
 from telliot_feeds.utils.reporter_utils import has_native_token_funds
 from telliot_feeds.utils.reporter_utils import is_online
@@ -728,7 +729,7 @@ class IntervalReporter:
             asset = ''
             logger.warning("Could not fetch datafeed")
 
-        if asset == "validated-feed":
+        if asset in managed_feeds.assets:
             await self.managed_feed_report()
         else:
             while report_count is None or report_count > 0:

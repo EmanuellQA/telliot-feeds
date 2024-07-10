@@ -1,10 +1,38 @@
 # Price validation
 
+Price validation is only available for managed feeds. To create a managed feed please complete these steps:
+
+1- Setup a managed query in the oracle contract, with the `setupManagedQuery` smart contract function.
+
+2- Create the DataFeed and add it to the query catalog if it has not been done already. Please, refer [Add support for reporting a new spot price](./add-spot-price.md) docs.
+
+3- Configure telliot to wih the managed feed. To do so, we have to configure the `src/telliot_feeds/feeds/managed_feeds/managed_feeds.yaml` YAML config file. The file's content is a template for the desirable asset and currency feed we want to report, just replace the `<asset>` and `<currency>` with the proper DataFeed's asset and currency. For example, given the template file, we want to configure the `pls-usd-spot` feed as a managed feed:
+
+Template file:
+```yaml
+managed-feeds:
+  - asset: <asset>
+    currency: <currency>
+  - asset: <asset2>
+    currency: <currency2>
+
+```
+
+Configured file:
+```yaml
+managed-feeds:
+  - asset: pls
+    currency: usd
+
+```
+
 For managed feeds we can pass additional flags for price validation, these are `-pvc` (`--price-validation-consensus`) and `-pvm` (`--price-validation-method`) usage example:
 
 ```sh
-telliot report -a <account> -qt validated-feed-usd-spot -ncr --fetch-flex -gm 40 --use-estimate-fee -pvc majority -pvm percentage_change
+telliot report -a <account> -qt <managed-feed-asset>-<managed-feed-currency>-spot -ncr --fetch-flex -gm 40 --use-estimate-fee -pvc majority -pvm percentage_change
 ```
+
+Please, replace `<managed-feed-asset>-<managed-feed-currency>-spot` with the correct DataFeed's query tag
 
 Both the shorter versions (`-pvc` and `-pvm`) and the longer versions (`--price-validation-consensus` and `--price-validation-method`) of these variables can be used.
 
