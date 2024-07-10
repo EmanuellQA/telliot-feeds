@@ -4,7 +4,6 @@ from pathlib import Path
 import yaml
 
 class ManagedFeedConfig(TypedDict):
-    pair: str
     asset: str
     currency: str
 
