@@ -10,6 +10,9 @@ from telliot_feeds.dtypes.datapoint import OptionalDataPoint
 from telliot_feeds.pricing.price_service import WebPriceService
 from telliot_feeds.pricing.price_source import PriceSource
 from telliot_feeds.utils.log import get_logger
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 logger = get_logger(__name__)
@@ -71,6 +74,8 @@ class CoinGeckoSpotPriceService(WebPriceService):
         Note that coingecko does not return a timestamp so one is
         locally generated.
         """
+
+        return float(os.getenv("FETCH_USD_MOCK_PRICE", 1)), datetime_now_utc()
 
         asset = asset.lower()
         currency = currency.lower()
