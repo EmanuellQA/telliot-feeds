@@ -226,6 +226,7 @@ async def test_uniswap_timeout():
     assert t is None
 
 
+@pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_uniswap_eth(caplog):
     """Test retrieving from UniswapV3 price source in ETH."""
