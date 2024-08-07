@@ -137,14 +137,39 @@ jobs:
           docker tag telliot-reporters:latest 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG
           docker push 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG
           echo "::set-output name=reporters_image_uri::090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG"
-
-      - name: Trigger Terraform Deployment
-        uses: peter-evans/repository-dispatch@v2
+      
+      - name: Git-Repo-Checkout
+        uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: fetchoracle/IaC
-          event-type: ecr-image-pushed
-          client-payload: '{"image_uri": "${{ steps.ecr.outputs.reporters_image_uri }}"}'
+          repository: "fetchoracle/IaC"
+          ref: "LL-1589"
+          fetch-depth: 0
+          path: terraform
+          token: ${{ secrets.PAT_TOKEN }}
+          persist-credentials: true
+
+      - name: Pull latest changes from the remote branch
+        shell: bash
+        working-directory: "IaC"
+        run: |
+          git checkout LL-1589
+          git pull origin LL-1589
+   
+      - name: change ImageTag in terraform vars
+        shell: bash
+        working-directory: "IaC"
+        run: |
+          cd stage_eln_ecs
+          awk 'NR==6 {$0="image_tag = \"${{ needs.build.outputs.image_tag }}\""} { print }' terraform.tfvars > stage-terraform.tfvars; rm terraform.tfvars; mv stage-terraform.tfvars terraform.tfvars
+          cd ..      
+
+      - name: Trigger IaC Deployment
+        run: |
+          IMAGE_URI=${{ steps.ecr.outputs.reporters_image_uri }}
+          curl -X POST -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/fetchoracle/IaC/dispatches \
+            -d '{"event_type":"ecr-image-pushed","client_payload":{"image_uri":"'"$IMAGE_URI"'"}}'      
 
       - name: Obtain Commit SHA
         if: always()
