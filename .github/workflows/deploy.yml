@@ -137,17 +137,6 @@ jobs:
           docker tag telliot-reporters:latest 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG
           docker push 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG
           echo "::set-output name=reporters_image_uri::090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG"
-      
-      - name: Publish Image to ECR
-        id: ecr
-        run: |
-          TAG=${{ github.ref }}
-          TAG=${TAG#refs/tags/}
-          echo "Tag value: $TAG"
-          aws ecr get-login-password --region ap-southeast-2 --profile fetchoracle-dev | docker login --username AWS --password-stdin 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com
-          docker tag telliot-reporters:latest 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG
-          docker push 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG
-          echo "::set-output name=reporters_image_uri::090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG"
 
       - name: Git-Repo-Checkout
         uses: actions/checkout@v3
