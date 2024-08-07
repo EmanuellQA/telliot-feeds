@@ -138,38 +138,50 @@ jobs:
           docker push 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG
           echo "::set-output name=reporters_image_uri::090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG"
       
+      - name: Publish Image to ECR
+        id: ecr
+        run: |
+          TAG=${{ github.ref }}
+          TAG=${TAG#refs/tags/}
+          echo "Tag value: $TAG"
+          aws ecr get-login-password --region ap-southeast-2 --profile fetchoracle-dev | docker login --username AWS --password-stdin 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com
+          docker tag telliot-reporters:latest 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG
+          docker push 090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG
+          echo "::set-output name=reporters_image_uri::090838539286.dkr.ecr.ap-southeast-2.amazonaws.com/telliot-reporters:$TAG"
+
       - name: Git-Repo-Checkout
         uses: actions/checkout@v3
         with:
           repository: "fetchoracle/IaC"
-          ref: "LL-1589"
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
-          path: terraform
-          token: ${{ secrets.PAT_TOKEN }}
+          path: IaC
+          token: ${{ secrets.TOKEN_GITHUB }}
           persist-credentials: true
 
       - name: Pull latest changes from the remote branch
         shell: bash
         working-directory: "IaC"
         run: |
-          git checkout LL-1589
-          git pull origin LL-1589
-   
-      - name: change ImageTag in terraform vars
+          git pull origin ${{ github.ref_name }}
+
+      - name: Update Image Tag in Terraform Vars
         shell: bash
         working-directory: "IaC"
         run: |
-          cd stage_eln_ecs
-          awk 'NR==6 {$0="image_tag = \"${{ needs.build.outputs.image_tag }}\""} { print }' terraform.tfvars > stage-terraform.tfvars; rm terraform.tfvars; mv stage-terraform.tfvars terraform.tfvars
-          cd ..      
-
-      - name: Trigger IaC Deployment
-        run: |
+          cd reporters/${{ github.ref_name }}
           IMAGE_URI=${{ steps.ecr.outputs.reporters_image_uri }}
-          curl -X POST -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/fetchoracle/IaC/dispatches \
-            -d '{"event_type":"ecr-image-pushed","client_payload":{"image_uri":"'"$IMAGE_URI"'"}}'      
+          sed -i "6s/.*/image_tag = \"${IMAGE_URI}\"/" ${{ github.ref_name }}.tfvars
+
+      - name: Commit and Push Changes
+        shell: bash
+        working-directory: "IaC"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git add reporters/${{ github.ref_name }}/${{ github.ref_name }}.tfvars
+          git commit -m "Update image tag to ${{ steps.ecr.outputs.reporters_image_uri }}"
+          git push origin ${{ github.ref_name }}     
 
       - name: Obtain Commit SHA
         if: always()
