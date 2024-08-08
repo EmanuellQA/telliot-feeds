@@ -1,0 +1,53 @@
+name: Submodule Sync
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update-submodule:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.TOKEN_GITHUB }}
+
+      - name: Set up Git user
+        run: |
+          git config --global user.email "${{ secrets.GIT_USER_EMAIL }}"
+          git config --global user.name "${{ secrets.GIT_USER_NAME }}"
+
+      - name: Update submodule
+        id: update-submodule
+        run: |
+          CURRENT_TIMESTAMP=$(date +%Y%m%dT%H%M%S)
+          echo "CURRENT_TIMESTAMP=$CURRENT_TIMESTAMP" >> $GITHUB_ENV
+          echo $CURRENT_TIMESTAMP
+          
+          git submodule update --remote --recursive
+          git submodule foreach --recursive "
+            if [ -n \"\$(git status --porcelain)\" ]; then
+              git switch -c $CURRENT_TIMESTAMP-submodule-sync &&
+              git commit -am \"submodule sync at $CURRENT_TIMESTAMP\" &&
+              git push origin $CURRENT_TIMESTAMP-submodule-sync
+            else
+              echo 'No changes to commit in submodule'
+            fi
+          "
+          
+          if [ -n "$(git status --porcelain)" ]; then
+            git switch -c $CURRENT_TIMESTAMP-submodule-sync
+            git commit -am "submodule sync at $CURRENT_TIMESTAMP"
+            git push origin $CURRENT_TIMESTAMP-submodule-sync
+          else
+            echo 'No changes to commit in the main repository'
+          fi
+
+      - name: Create a pull request
+        run: |
+          PR_TITLE="Update-submodule"
+          echo "Creating pull request with title: $PR_TITLE"
+          gh pr create --title "$PR_TITLE" --body ""
+        env:
+          GH_TOKEN: ${{ secrets.TOKEN_GITHUB }}
