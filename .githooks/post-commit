@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Initialize submodules
+git submodule init
+
+# Update submodules to their latest commits on their remote branches
+git submodule update --remote
