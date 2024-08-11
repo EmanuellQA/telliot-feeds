@@ -51,3 +51,11 @@ jobs:
           gh pr create --title "$PR_TITLE" --body ""
         env:
           GH_TOKEN: ${{ secrets.TOKEN_GITHUB }}
+
+      - name: Trigger submodule.yml in disputable-values-monitor repo
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.TOKEN_GITHUB }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/fetchoracle/disputable-values-monitor/actions/workflows/submodule.yml/dispatches \
+            -d '{"ref":"main"}'
