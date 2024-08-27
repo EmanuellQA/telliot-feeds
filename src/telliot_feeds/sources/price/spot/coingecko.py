@@ -75,8 +75,6 @@ class CoinGeckoSpotPriceService(WebPriceService):
         locally generated.
         """
 
-        return float(os.getenv("FETCH_USD_MOCK_PRICE", 1)), datetime_now_utc()
-
         asset = asset.lower()
         currency = currency.lower()
 
