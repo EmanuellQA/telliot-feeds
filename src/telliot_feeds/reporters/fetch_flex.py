@@ -365,8 +365,9 @@ class FetchFlexReporter(IntervalReporter):
         rev_usd = tip / 1e18 * price_fetch_usd
         costs_usd = txn_fee / 1e9 * price_native_token  # convert gwei costs to eth, then to usd
         profit_usd = rev_usd - costs_usd
-        logger.info(f"Estimated profit: ${round(profit_usd, 2)}")
-        logger.info(f"tip price: {round(rev_usd, 2)}, gas costs: {costs_usd}")
+
+        logger.info(f"Estimated profit: ${round(profit_usd, 2)} ({profit_usd:.18f})")
+        logger.info(f"tip price: {round(rev_usd, 2)} ({rev_usd:.18f}) , gas costs: {costs_usd}")
 
         if gas_info['type'] == 2:
             debugging_txn_fee_message = f"max_fee * gas_limit = {gas_info['max_fee']} * {gas_info['gas_limit']} = {txn_fee}"
