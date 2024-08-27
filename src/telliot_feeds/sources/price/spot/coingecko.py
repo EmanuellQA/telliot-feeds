@@ -76,10 +76,6 @@ class CoinGeckoSpotPriceService(WebPriceService):
         """
 
         asset = asset.lower()
-
-        if asset == "fetch" and os.getenv("FETCH_USD_MOCK_PRICE") is not None:
-            return float(os.getenv("FETCH_USD_MOCK_PRICE", 1)), datetime_now_utc()
-
         currency = currency.lower()
 
         coin_id = coingecko_coin_id.get(asset, None)
