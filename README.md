@@ -1,3 +1,5 @@
+[![Tests](https://github.com/fetchoracle/telliot-feeds/actions/workflows/test.yml/badge.svg)]
+
 # Telliot Feeds
 
 This package contains reporting tools and datafeeds for Fetch oracles.
