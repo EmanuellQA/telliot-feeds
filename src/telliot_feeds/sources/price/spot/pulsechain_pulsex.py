@@ -9,6 +9,7 @@ from telliot_feeds.dtypes.datapoint import OptionalDataPoint
 from telliot_feeds.pricing.price_service import WebPriceService
 from telliot_feeds.pricing.price_source import PriceSource
 from telliot_feeds.utils.log import get_logger
+from telliot_feeds.feeds.managed_feeds.ManagedFeeds import managed_feeds
 
 from web3 import Web3
 import os
@@ -222,7 +223,7 @@ class PulsechainPulseXService(WebPriceService):
 
         contract_addr = addrs.get(currency)
         
-        if asset != 'pls' and asset != 'validated-feed':
+        if asset != 'pls' and asset not in managed_feeds.assets:
             logger.error(f"Asset not supported: {asset}")
             return None, None
 
@@ -264,7 +265,7 @@ class PulsechainPulseXService(WebPriceService):
                 LP contract address: {contract_addr}
             """) 
             
-            if asset == "validated-feed":
+            if asset in managed_feeds.assets:
                 try:
                     if not self._is_price_valid(currency, price):
                         logger.warning(f"Price from dexscreener API is different from LP price")

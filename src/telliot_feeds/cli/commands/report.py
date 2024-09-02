@@ -21,6 +21,7 @@ from telliot_feeds.cli.utils import validate_address
 from telliot_feeds.datafeed import DataFeed
 from telliot_feeds.feeds import CATALOG_FEEDS
 from telliot_feeds.feeds.fetch_rng_feed import assemble_rng_datafeed
+from telliot_feeds.feeds.managed_feeds.ManagedFeeds import managed_feeds
 from telliot_feeds.integrations.diva_protocol import DIVA_DIAMOND_ADDRESS
 from telliot_feeds.integrations.diva_protocol import DIVA_FETCH_MIDDLEWARE_ADDRESS
 from telliot_feeds.integrations.diva_protocol.report import DIVAProtocolReporter
@@ -559,7 +560,7 @@ async def report(
 
         if submit_once:
 
-            if chosen_feed.query.asset == 'validated-feed':
+            if chosen_feed.query.asset in managed_feeds.assets:
                 await reporter.managed_feed_report(submit_once=True)
                 return
 
