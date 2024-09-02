@@ -57,6 +57,7 @@ from telliot_feeds.feeds.fetch_rng_feed import fetch_rng_feed
 from telliot_feeds.feeds.fetch_rng_manual_feed import fetch_rng_manual_feed
 from telliot_feeds.feeds.fetch_rng_custom_feed import fetch_rng_custom_feed
 from telliot_feeds.feeds.fetch_usd_feed import fetch_usd_median_feed
+from telliot_feeds.feeds.fetch_usd_launch_feed import fetch_usd_launch_feed
 from telliot_feeds.feeds.twap_manual_feed import twap_30d_example_manual_feed
 from telliot_feeds.feeds.twap_manual_feed import twap_manual_feed
 from telliot_feeds.feeds.uni_usd_feed import uni_usd_median_feed
@@ -99,6 +100,7 @@ CATALOG_FEEDS = {
     "eth-usd-spot": eth_usd_median_feed,
     "btc-usd-spot": btc_usd_median_feed,
     "fetch-usd-spot": fetch_usd_median_feed,
+    "fetch-launch-price": fetch_usd_launch_feed,
     "albt-usd-spot": albt_usd_median_feed,
     "rai-usd-spot": rai_usd_median_feed,
     "xdai-usd-spot": xdai_usd_median_feed,
