@@ -263,12 +263,14 @@ class FetchFlexReporter(IntervalReporter):
         if not status.ok:
             logger.warning("Unable to fetch single tip")
         else:
+            logger.info(f"Single tip: {single_tip}")
             tip += single_tip
 
         feed_tip = await get_feed_tip(datafeed.query.query_id, self.autopay)
         if feed_tip is None:
             logger.warning("Unable to fetch feed tip")
         else:
+            logger.info(f"Feed tip: {feed_tip}")
             tip += feed_tip
 
         return tip
@@ -363,10 +365,33 @@ class FetchFlexReporter(IntervalReporter):
         rev_usd = tip / 1e18 * price_fetch_usd
         costs_usd = txn_fee / 1e9 * price_native_token  # convert gwei costs to eth, then to usd
         profit_usd = rev_usd - costs_usd
-        logger.info(f"Estimated profit: ${round(profit_usd, 2)}")
-        logger.info(f"tip price: {round(rev_usd, 2)}, gas costs: {costs_usd}")
+
+        logger.info(f"Estimated profit: ${round(profit_usd, 2)} ({profit_usd:.18f})")
+        logger.info(f"tip price: {round(rev_usd, 2)} ({rev_usd:.18f}) , gas costs: {costs_usd}")
+
+        if gas_info['type'] == 2:
+            debugging_txn_fee_message = f"max_fee * gas_limit = {gas_info['max_fee']} * {gas_info['gas_limit']} = {txn_fee}"
+        elif gas_info['type'] == 0:
+            debugging_txn_fee_message = f"gas_price * gas_limit = {gas_info['gas_price']} * {gas_info['gas_limit']} = {txn_fee}"
 
         percent_profit = ((profit_usd) / costs_usd) * 100
+
+        logger.info(f"""
+            Tip WEI: {tip}
+            Tip ETH: {tip / 1e18}
+            Price fetch USD: {price_fetch_usd}
+            Revenue USD: {rev_usd} (Tip ETH * Price fetch USD)
+            Txn fee: {debugging_txn_fee_message}
+            Txn fee GWEI: {txn_fee / 1e9}
+            Price pls USD: {price_native_token}
+            Costs USD: {costs_usd} (Txn fee GWEI * Price pls USD)
+            Profit USD: {profit_usd} (Revenue USD - Costs usd = {rev_usd} - {costs_usd})
+            Expected profit: {self.expected_profit} (--profit or -p flag)
+            Percent profit: {((profit_usd) / costs_usd) * 100}% (Profit USD / Costs usd * 100)
+            Is calculated profit below expected profit: {isinstance(self.expected_profit, float) and percent_profit < self.expected_profit}
+            Is profitable? {isinstance(self.expected_profit, float) and percent_profit >= self.expected_profit}
+        """)
+
         logger.info(f"Estimated percent profit: {round(percent_profit, 2)}%")
         if (self.expected_profit != "YOLO") and (
             isinstance(self.expected_profit, float) and percent_profit < self.expected_profit
