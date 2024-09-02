@@ -302,7 +302,20 @@ class FetchRNGCustomManualSource(DataSource[Any]):
     async def fetch_new_datapoint_with_timestamp(self, timestamp) -> OptionalDataPoint[bytes]:
         self.timestamp = timestamp
         return self.fetch_new_datapoint()
-        
+
+    async def retry_get_eth_hash(timestamp, max_retries=3, wait_time=10):
+        retries = 0
+        result = None
+        while retries < max_retries:
+            logger.info(f"Retrying to retrieve Ethereum blockhash, attempt { retries+1 } ")
+            result = await get_eth_hash(timestamp)
+            if result is not None:
+                return result
+            retries += 1
+            if retries < max_retries:
+                await asyncio.sleep(wait_time)
+        return result
+
     async def fetch_new_datapoint(self) -> OptionalDataPoint[bytes]:
         """Update current value with time-stamped value fetched from user input.
 
@@ -323,6 +336,9 @@ class FetchRNGCustomManualSource(DataSource[Any]):
             timestamp = self.timestamp
 
         eth_hash, eth_timestamp = await get_eth_hash(timestamp)
+
+        if eth_hash is None:
+            eth_hash = await retry_get_eth_hash(timestamp)
 
         if eth_hash is None:
             logger.warning("Unable to retrieve Ethereum blockhash")

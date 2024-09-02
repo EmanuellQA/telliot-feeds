@@ -519,7 +519,9 @@ async def report(
                 **common_reporter_kwargs,
             )
         elif rng_auto:
-            common_reporter_kwargs["wait_period"] = 120 if wait_period < 120 else wait_period
+            wait_period = max(120, int(os.getenv('INTERVAL', "300")))
+
+            common_reporter_kwargs["wait_period"] = wait_period
             reporter = RNGReporter(  # type: ignore
                 **common_reporter_kwargs,
             )
@@ -539,7 +541,7 @@ async def report(
             )  # type: ignore
         else:
             if getattr(chosen_feed.query, 'is_custom_rng', False):
-                common_reporter_kwargs["wait_period"] = int(os.getenv('REPORT_INTERVAL', "300"))
+                common_reporter_kwargs["wait_period"] = int(os.getenv('INTERVAL', "300"))
                 reporter = RNGCustomReporter(**{
                     **common_reporter_kwargs,
                 }) # type: ignore
