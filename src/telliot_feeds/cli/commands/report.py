@@ -540,7 +540,7 @@ async def report(
                 **common_reporter_kwargs,
             )  # type: ignore
         else:
-            if getattr(chosen_feed.query, 'is_custom_rng', False):
+            if chosen_feed is not None and getattr(chosen_feed.query, 'is_custom_rng', False):
                 common_reporter_kwargs["wait_period"] = int(os.getenv('INTERVAL', "300"))
                 reporter = RNGCustomReporter(**{
                     **common_reporter_kwargs,
@@ -562,7 +562,11 @@ async def report(
 
         if submit_once:
 
+<<<<<<< HEAD
             if chosen_feed.query.asset in managed_feeds.assets:
+=======
+            if chosen_feed is not None and chosen_feed.query.asset == 'validated-feed':
+>>>>>>> feed9658503746cc49e9a34120351dd48f36f7a5
                 await reporter.managed_feed_report(submit_once=True)
                 return
 
