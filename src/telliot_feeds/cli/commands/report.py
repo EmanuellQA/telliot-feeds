@@ -21,6 +21,7 @@ from telliot_feeds.cli.utils import validate_address
 from telliot_feeds.datafeed import DataFeed
 from telliot_feeds.feeds import CATALOG_FEEDS
 from telliot_feeds.feeds.fetch_rng_feed import assemble_rng_datafeed
+from telliot_feeds.feeds.managed_feeds.ManagedFeeds import managed_feeds
 from telliot_feeds.integrations.diva_protocol import DIVA_DIAMOND_ADDRESS
 from telliot_feeds.integrations.diva_protocol import DIVA_FETCH_MIDDLEWARE_ADDRESS
 from telliot_feeds.integrations.diva_protocol.report import DIVAProtocolReporter
@@ -518,7 +519,9 @@ async def report(
                 **common_reporter_kwargs,
             )
         elif rng_auto:
-            common_reporter_kwargs["wait_period"] = 120 if wait_period < 120 else wait_period
+            wait_period = max(120, int(os.getenv('INTERVAL', "300")))
+
+            common_reporter_kwargs["wait_period"] = wait_period
             reporter = RNGReporter(  # type: ignore
                 **common_reporter_kwargs,
             )
@@ -537,8 +540,8 @@ async def report(
                 **common_reporter_kwargs,
             )  # type: ignore
         else:
-            if getattr(chosen_feed.query, 'is_custom_rng', False):
-                common_reporter_kwargs["wait_period"] = int(os.getenv('REPORT_INTERVAL', "300"))
+            if chosen_feed is not None and getattr(chosen_feed.query, 'is_custom_rng', False):
+                common_reporter_kwargs["wait_period"] = int(os.getenv('INTERVAL', "300"))
                 reporter = RNGCustomReporter(**{
                     **common_reporter_kwargs,
                 }) # type: ignore
@@ -559,7 +562,7 @@ async def report(
 
         if submit_once:
 
-            if chosen_feed.query.asset == 'validated-feed':
+            if chosen_feed is not None and chosen_feed.query.asset in managed_feeds.assets:
                 await reporter.managed_feed_report(submit_once=True)
                 return
 

@@ -62,12 +62,13 @@ class Logger(metaclass=Singleton):
         stream.setFormatter(formatter)
         logger = logging.getLogger('global_logger')
         logger.setLevel(logging.DEBUG)
-        logger.addHandler(stream)
         activate_file_logger = os.getenv("ACTIVATE_TELLIOT_LOG_FILE", 'False').lower() in ('true', '1', 't')
         if activate_file_logger:
             fh = RotatingFileHandler("telliot_feeds.log", maxBytes=10000000)
             fh.setFormatter(formatter)
             logger.addHandler(fh)
+        else:
+            logger.addHandler(stream)
         logger.addFilter(DuplicateFilter())
 
         self.logger = logger

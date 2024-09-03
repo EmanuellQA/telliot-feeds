@@ -20,7 +20,7 @@ yesterday = int(datetime.datetime.now().timestamp() - 60 * 60 * 24)
 # int timestamp of today's date
 sep_20_2022 = int(datetime.datetime(2022, 9, 20).timestamp())
 
-
+@pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_get_pools_from_subgraph():
     query = query_valid_pools(

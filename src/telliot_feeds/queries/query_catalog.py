@@ -25,6 +25,10 @@ query_catalog = Catalog()
 # Query Catalog Entries
 # --------------------------------------------------------------------------------------
 
+
+query_catalog.add_entry(tag="fetch-launch-price", title="FETCH/USD launch price",
+                        q=SpotPrice(asset="fetch", currency="usd"))
+
 query_catalog.add_entry(tag="fetch-usd-spot", title="FETCH/USD spot price",
                         q=SpotPrice(asset="fetch", currency="usd"))
 

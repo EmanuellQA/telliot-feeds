@@ -24,7 +24,7 @@ from telliot_feeds.utils.log import get_logger
 
 logger = get_logger(__name__)
 
-INTERVAL = int(os.getenv('REPORT_INTERVAL', "300")) # 5 minutes
+INTERVAL = int(os.getenv('INTERVAL', "300")) # 5 minutes
 START_TIME = int(os.getenv('START_TIME', "1653350400")) # 2022-5-24 00:00:00 GMT
 FETCH_RNG_NAME = os.getenv('FETCH_RNG_NAME', "custom") #default feed name to custom
 
