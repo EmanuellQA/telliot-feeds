@@ -562,7 +562,9 @@ async def report(
 
         if submit_once:
 
-            if chosen_feed is not None and chosen_feed.query.asset in managed_feeds.assets:
+            if (chosen_feed is not None and
+                hasattr(chosen_feed.query, 'asset') and
+                chosen_feed.query.asset in managed_feeds.assets):
                 await reporter.managed_feed_report(submit_once=True)
                 return
 
