@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FetchOracleAddress(AbiQuery):
     """Returns the latest Fetch oracle address.
-    It is used for updating the time based rewards recipient on Ethereum mainnet.
+    It is used for updating the time based rewards recipient on mainnet.
 
     Attributes:
         phantom:
