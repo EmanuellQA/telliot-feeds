@@ -4,6 +4,8 @@ from telliot_feeds.queries.price.spot_price import SpotPrice
 from telliot_feeds.sources.price.spot.coingecko import CoinGeckoSpotPriceSource
 from telliot_feeds.sources.price.spot.pulsex_subgraph import PulseXSupgraphSource
 from telliot_feeds.sources.price.spot.fetch_usd_mock import FetchUsdMockSpotPriceSource
+from telliot_feeds.sources.price_aggregator import PriceAggregator
+from telliot_feeds.sources.price.spot.pulsex_fetch_dai import PulseXFETCHDAISource
 from dotenv import load_dotenv
 import os
 
@@ -19,8 +21,18 @@ elif os.getenv("PULSEX_SUBGRAPH_URL") and os.getenv("FETCH_ADDRESS"):
         query=SpotPrice(asset="fetch", currency="usd"),
         source=PulseXSupgraphSource(asset="fetch", currency="usd")
     )
-else:
+elif os.getenv("COINGECKO_MOCK_URL"):
     fetch_usd_median_feed = DataFeed(
         query=SpotPrice(asset="fetch", currency="usd"),
         source=CoinGeckoSpotPriceSource(asset="fetch", currency="usd")
+    )
+else:
+    fetch_usd_median_feed = DataFeed(
+        query=SpotPrice(asset="fetch", currency="usd"),
+        source=PriceAggregator(
+            asset="fetch",
+            currency="usd",
+            algorithm="weighted_average",
+            sources=[PulseXFETCHDAISource(asset="fetch", currency="pls")],
+        )
     )
