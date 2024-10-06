@@ -94,7 +94,9 @@ class PulseXSupgraphService(WebPriceService):
                 return price, datetime_now_utc()
             except KeyError as e:
                 msg = f"Error parsing Pulsechain Supgraph response: KeyError: {e}"
-                if response["data"]["token"] == None:
+                if ("data" in response and
+                    "token" in response["data"] and
+                    response["data"]["token"] == None):
                     msg = f"Invalid token address: {token}"
                 logger.critical(msg)
                 return None, None
