@@ -158,8 +158,14 @@ query_catalog.add_entry(
 )
 
 query_catalog.add_entry(
+    tag="plsxpower-usd-spot",
+    title="Powercity Pulsechain PulseX feed",
+    q=SpotPrice(asset="plsx", currency="usd"),
+)
+
+query_catalog.add_entry(
     tag="plsx-usd-spot",
-    title="Pulsechain PulseX feed",
+    title="PLSX/USD",
     q=SpotPrice(asset="plsx", currency="usd"),
 )
 
