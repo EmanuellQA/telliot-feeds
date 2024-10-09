@@ -17,6 +17,9 @@ CURRENCIES = ["usd", "jpy", "eth", "btc"]
 SPOT_PRICE_PAIRS = [
     "ETH/USD",
     "BTC/USD",
+    "HEX/USD",
+    "INC/USD",
+    "LOAN/USD",
     "FETCH/USD",
     "OHM/ETH",
     "VSQ/USD",

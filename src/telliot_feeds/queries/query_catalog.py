@@ -52,6 +52,24 @@ query_catalog.add_entry(
 )
 
 query_catalog.add_entry(
+    tag="hex-usd-spot",
+    title="HEX/USD spot price",
+    q=SpotPrice(asset="hex", currency="usd"),
+)
+
+query_catalog.add_entry(
+    tag="inc-usd-spot",
+    title="INC/USD spot price",
+    q=SpotPrice(asset="inc", currency="usd"),
+)
+
+query_catalog.add_entry(
+    tag="loan-usd-spot",
+    title="LOAN/USD spot price",
+    q=SpotPrice(asset="loan", currency="usd"),
+)
+
+query_catalog.add_entry(
     tag="dai-usd-spot",
     title="DAI/USD spot price",
     q=SpotPrice(asset="dai", currency="usd"),

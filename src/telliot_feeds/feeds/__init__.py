@@ -68,12 +68,18 @@ from telliot_feeds.feeds.uspce_feed import uspce_feed
 from telliot_feeds.feeds.vesq import vsq_usd_median_feed
 from telliot_feeds.feeds.xdai_usd_feed import xdai_usd_median_feed
 from telliot_feeds.feeds.yfi_usd_feed import yfi_usd_median_feed
+from telliot_feeds.feeds.hex_usd_feed import hex_usd_median_feed
+from telliot_feeds.feeds.inc_usd_feed import inc_usd_median_feed
+from telliot_feeds.feeds.loan_usd_feed import loan_usd_median_feed
 
 CATALOG_FEEDS = {
     "ampleforth-custom": ampl_usd_vwap_feed,
     "ampleforth-uspce": uspce_feed,
     "eth-jpy-spot": eth_jpy_median_feed,
     "ohm-eth-spot": ohm_eth_median_feed,
+    "hex-usd-spot": hex_usd_median_feed,
+    "inc-usd-spot": inc_usd_median_feed,
+    "loan-usd-spot": loan_usd_median_feed,
     "vsq-usd-spot": vsq_usd_median_feed,
     "bct-usd-spot": bct_usd_median_feed,
     "dai-usd-spot": dai_usd_median_feed,
