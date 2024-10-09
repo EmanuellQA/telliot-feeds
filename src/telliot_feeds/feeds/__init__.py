@@ -44,7 +44,7 @@ from telliot_feeds.feeds.pls_usd_feed import pls_usd_feed
 from telliot_feeds.feeds.pls_usd_twap import pls_usd_twap_feed
 from telliot_feeds.feeds.pls_usd_twap_lp import pls_usd_twap_lp_feed
 from telliot_feeds.feeds.pls_usd_lwap import pls_usd_lwap_feed
-from telliot_feeds.feeds.plsx_usd_feed import plsx_usd_feed
+from telliot_feeds.feeds.plsx_usd_feed import plsx_usd_median_feed
 from telliot_feeds.feeds.plsxpower_usd_feed import plsx_usd_feed
 from telliot_feeds.feeds.rai_usd_feed import rai_usd_median_feed
 from telliot_feeds.feeds.ric_usd_feed import ric_usd_median_feed
@@ -97,7 +97,7 @@ CATALOG_FEEDS = {
     "pls-usd-spot-twap": pls_usd_twap_feed,
     "pls-usd-spot-twap-lp": pls_usd_twap_lp_feed,
     "pls-usd-spot-lwap": pls_usd_lwap_feed,
-    "plsx-usd-spot": plsx_usd_feed,
+    "plsx-usd-spot": plsx_usd_median_feed,
     "plsxpower-usd-spot": plsx_usd_feed,
     "eth-usd-spot": eth_usd_median_feed,
     "btc-usd-spot": btc_usd_median_feed,
